@@ -1,0 +1,4 @@
+name,text,inserted_at
+{% for moji in bigmoji %}
+{{ moji.name }},"{{ moji.text }}",{{ moji.inserted_at }}
+{% endfor %}

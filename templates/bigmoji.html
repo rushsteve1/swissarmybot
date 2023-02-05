@@ -1,0 +1,27 @@
+{% extends "base.html" %} {% block main %}
+<h1>BigMoji List</h1>
+
+<div class="d-flex justify-content-between">
+    <div>There are {{ bigmoji.len() }} BigMoji total</div>
+    <div><kbd>Ctrl-F</kbd> to search</div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hovermw">
+        <thead>
+            <th>Name</th>
+            <th>Text</th>
+            <th>Inserted At</th>
+        </thead>
+        <tbody>
+            {% for moji in bigmoji %}
+            <tr>
+                <td><code>:{{ moji.name }}:</code></td>
+                <td>{{ moji.text|linkify|safe }}</td>
+                <td nowrap>{{ moji.inserted_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

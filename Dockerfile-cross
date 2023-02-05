@@ -1,0 +1,43 @@
+# This Dockerfile cross compiles SAB to ARM64
+
+FROM rust:latest AS builder
+
+# Arguments for the build
+ARG FOSSIL_VERSION=""
+ENV TARGET=aarch64-unknown-linux-gnu
+
+# Cross Compile tooling
+RUN apt update -y && apt install -y g++-aarch64-linux-gnu
+RUN rustup target add "$TARGET"
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="aarch64-linux-gnu-gcc"
+
+WORKDIR /app
+
+# Build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+COPY Cargo.toml Cargo.lock .
+RUN cargo build --release -j 8 --target "$TARGET"
+
+# Build SAB
+COPY . .
+RUN cargo build --release -j 8 --target "$TARGET"
+RUN aarch64-linux-gnu-strip "/app/target/$TARGET/release/swiss_army_bot"
+
+# --------------- #
+
+FROM --platform=linux/arm64 busybox:glibc AS app
+
+WORKDIR /app
+
+COPY --from=builder /app/target/aarch64-unknown-linux-gnu/release/swiss_army_bot .
+
+VOLUME /app/swissarmy.sqlite
+
+ENV RUST_LOG="warn"
+ENV DATABASE_PATH="/app/swissarmy.sqlite"
+ENV WEB_DOMAIN="elfnein.rushsteve1.us"
+ENV ROUTE_PREFIX="/bot"
+ENV PORT="8080"
+EXPOSE 8080
+
+CMD /app/swiss_army_bot
