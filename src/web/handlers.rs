@@ -11,7 +11,7 @@ use serenity::model::prelude::Mentionable;
 use super::templates::*;
 use crate::models::*;
 
-use crate::{CACHE_HTTP, DB_POOL, FOSSIL_VERSION, VERSION};
+use crate::{CACHE_HTTP, DB_POOL, GIT_VERSION, VERSION};
 
 const GOOD_STONKS: &str = "📈";
 const BAD_STONKS: &str = "📉";
@@ -59,7 +59,7 @@ pub fn router() -> Router {
 fn index(state: State) -> (State, IndexTemplate) {
     let tpl = IndexTemplate {
         version: VERSION,
-        fossil_version: FOSSIL_VERSION,
+        git_version: GIT_VERSION,
     };
 
     (state, tpl)

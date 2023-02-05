@@ -5,7 +5,7 @@ use askama::Template;
 #[template(path = "index.html")]
 pub struct IndexTemplate {
     pub version: &'static str,
-    pub fossil_version: Option<&'static str>,
+    pub git_version: Option<&'static str>,
 }
 
 #[derive(Template)]

@@ -5,7 +5,7 @@ RUN apk add --no-cache git musl-dev
 WORKDIR /app
 
 # Arguments for the build
-ARG FOSSIL_VERSION
+ARG GIT_VERSION
 
 # Build dependencies
 RUN mkdir src && touch src/lib.rs
@@ -35,9 +35,9 @@ VOLUME /app/swissarmy.sqlite
 
 ENV RUST_LOG="warn"
 ENV DATABASE_PATH="/app/swissarmy.sqlite"
-ENV WEB_DOMAIN="elfnein.rushsteve1.us"
-ENV ROUTE_PREFIX="/bot"
-ENV PORT="8080"
+ENV WEB_DOMAIN="sab.rushsteve1.us"
+ENV ROUTE_PREFIX=""
+ENV PORT="18080"
 EXPOSE 8080
 
 CMD /app/swiss_army_bot

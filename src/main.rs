@@ -27,7 +27,7 @@ use commands::Handler;
 
 // Get version and git info from environment variables
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
-pub const FOSSIL_VERSION: Option<&'static str> = std::option_env!("FOSSIL_VERSION");
+pub const GIT_VERSION: Option<&'static str> = std::option_env!("GIT_VERSION");
 
 lazy_static! {
     // Get configuration from environment variables
