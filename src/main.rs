@@ -15,15 +15,18 @@ extern crate gotham_derive;
 use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
+use serenity::model::id::ChannelId;
 use serenity::prelude::*;
 use serenity::CacheAndHttp;
 use sqlx::migrate::MigrateDatabase;
 
 mod commands;
+mod jobs;
 mod models;
 mod web;
 
 use commands::Handler;
+use jobs::setup_jobs;
 
 // Get version and git info from environment variables
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
@@ -48,8 +51,22 @@ lazy_static! {
             .into_string()
             .unwrap()
     });
+
     pub static ref DOMAIN: String = env::var("WEB_DOMAIN").unwrap_or_else(|_| "0.0.0.0".to_string());
-    pub static ref PREFIX: String = env::var("ROUTE_PREFIX").unwrap_or_else(|_| String::new());
+    pub static ref PREFIX: String = env::var("ROUTE_PREFIX").unwrap_or_default();
+
+    pub static ref QOTD_CHANNELS: Vec<ChannelId> =
+        env::var("QOTD_CHANNELS")
+            .unwrap_or_default()
+            .split(",")
+            .map(|s| s.trim().parse::<u64>().unwrap().into())
+            .collect();
+    pub static ref STONKS_CHANNELS: Vec<ChannelId> =
+        env::var("STONKS_CHANNELS")
+            .unwrap_or_default()
+            .split(",")
+            .map(|s| s.trim().parse::<u64>().unwrap().into())
+            .collect();
 
     // Build and connect to the database
     pub static ref DB_POOL: sqlx::SqlitePool = sqlx::sqlite::SqlitePoolOptions::new()
@@ -109,6 +126,14 @@ async fn main() {
     info!("Binding to address `{}`", addr);
     let gotham_fut = gotham::plain::init_server(addr, web::router());
 
+    let mut scheduler = setup_jobs();
+    let job_fut = tokio::spawn(async move {
+        loop {
+            scheduler.run_pending().await;
+            tokio::time::sleep(std::time::Duration::from_millis(10_000)).await;
+        }
+    });
+
     // We're running both Serenity and Gotham in Tokio workers, and neither of
     // them should ever exit, so we wait for them and print an error if they do.
     debug!("Starting event loop...");
@@ -120,6 +145,10 @@ async fn main() {
             }
             e = gotham_fut => {
                 error!("Gotham exited with {:?}", e.unwrap_err());
+                break;
+            }
+            e = job_fut => {
+                error!("Clokwerk exited with {:?}", e.unwrap_err());
                 break;
             }
         )

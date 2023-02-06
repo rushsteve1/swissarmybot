@@ -1,8 +1,8 @@
 use serenity::async_trait;
+use serenity::model::application::interaction::application_command::CommandDataOption;
+use serenity::model::application::interaction::{Interaction, InteractionResponseType};
 use serenity::model::prelude::*;
 use serenity::prelude::*;
-use serenity::model::application::interaction::{Interaction, InteractionResponseType};
-use serenity::model::application::interaction::application_command::CommandDataOption;
 
 use super::definition::{clear_definitions, clear_definitions_for_guild, interactions_definition};
 use crate::models::BigMoji;

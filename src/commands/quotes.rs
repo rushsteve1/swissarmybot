@@ -1,5 +1,5 @@
-use serenity::model::prelude::*;
 use serenity::model::application::interaction::Interaction;
+use serenity::model::prelude::*;
 use sqlx::Row;
 
 use super::{get_cmd, AsInner};

@@ -1,7 +1,7 @@
-use serenity::model::id::GuildId;
-use serenity::model::application::command::*;
-use serenity::model::application::command::Command;
 use serenity::client::Context;
+use serenity::model::application::command::Command;
+use serenity::model::application::command::*;
+use serenity::model::id::GuildId;
 
 pub async fn clear_definitions(ctx: &Context) {
     let commands = Command::get_global_application_commands(&ctx.http)

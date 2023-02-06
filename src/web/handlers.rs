@@ -7,6 +7,7 @@ use gotham::router::Router;
 use gotham::state::{FromState, State};
 use scraper::{html::Html, selector::Selector};
 use serenity::model::prelude::Mentionable;
+use serenity::model::prelude::*;
 
 use super::templates::*;
 use crate::models::*;
@@ -125,21 +126,33 @@ async fn quotes_csv(mut state: State) -> HandlerResult {
 async fn post_random(mut state: State) -> HandlerResult {
     let chan = ChannelQuery::take_from(&mut state);
     let body = gotham::hyper::Body::take_from(&mut state);
-    let chan: serenity::model::id::ChannelId = chan.channel.into();
+    let chan: ChannelId = chan.channel.into();
 
-    let tagline = gotham::hyper::body::to_bytes(body)
+    let body = gotham::hyper::body::to_bytes(body)
         .await
         .ok()
         .and_then(|b| String::from_utf8(b.to_vec()).ok())
         .unwrap_or_default();
 
+    post_random_to_channel(chan, body)
+        .await
+        .expect("Could not post random quote");
+
+    let resp = create_empty_response(&state, StatusCode::ACCEPTED);
+    Ok((state, resp))
+}
+
+pub async fn post_random_to_channel(
+    chan: ChannelId,
+    body: String,
+) -> Result<Message, serenity::Error> {
     let quote = get_random_quote().await;
     let user_id = serenity::model::id::UserId(quote.user_id as u64);
     let author_id = serenity::model::id::UserId(quote.author_id as u64);
 
     let txt = format!(
         "{}\n#{} by {}, added by {} on <t:{}:f>\n\n>>> {}",
-        tagline,
+        body,
         quote.id,
         user_id.mention(),
         author_id.mention(),
@@ -152,16 +165,21 @@ async fn post_random(mut state: State) -> HandlerResult {
         m
     })
     .await
-    .expect("Could not send POST'd message");
+}
+
+async fn post_stonks(mut state: State) -> HandlerResult {
+    let chan = ChannelQuery::take_from(&mut state);
+    let chan: ChannelId = chan.channel.into();
+
+    post_stonks_to_channel(chan)
+        .await
+        .expect("Could not post stonks message");
 
     let resp = create_empty_response(&state, StatusCode::ACCEPTED);
     Ok((state, resp))
 }
 
-async fn post_stonks(mut state: State) -> HandlerResult {
-    let chan = ChannelQuery::take_from(&mut state);
-    let chan: serenity::model::id::ChannelId = chan.channel.into();
-
+pub async fn post_stonks_to_channel(chan: ChannelId) -> Result<Message, serenity::Error> {
     let txt = {
         let body = reqwest::get(STONKS_URL)
             .await
@@ -185,10 +203,6 @@ async fn post_stonks(mut state: State) -> HandlerResult {
         m
     })
     .await
-    .expect("Could not send stonks message");
-
-    let resp = create_empty_response(&state, StatusCode::ACCEPTED);
-    Ok((state, resp))
 }
 
 // --- Helper Functions ---

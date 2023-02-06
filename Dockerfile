@@ -36,8 +36,11 @@ VOLUME /app/swissarmy.sqlite
 ENV RUST_LOG="warn"
 ENV DATABASE_PATH="/app/swissarmy.sqlite"
 ENV WEB_DOMAIN="sab.rushsteve1.us"
-ENV ROUTE_PREFIX=""
-ENV PORT="18080"
+
+ENV STONKS_CHANNELS=""
+ENV QOTD_CHANNELS=""
+
+ENV PORT="8080"
 EXPOSE 8080
 
 CMD /app/swiss_army_bot
