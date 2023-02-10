@@ -5,7 +5,7 @@ use clokwerk::{AsyncScheduler, Job, TimeUnits};
 
 use crate::{QOTD_CHANNELS, STONKS_CHANNELS};
 
-pub fn setup_jobs() -> AsyncScheduler {
+pub fn setup_jobs() -> AsyncScheduler<FixedOffset> {
     let mut scheduler = AsyncScheduler::with_tz(FixedOffset::east_opt(5 * 3600).unwrap());
 
     // Quote of the Day schedule
