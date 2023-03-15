@@ -1,12 +1,12 @@
 use crate::web::{post_random_to_channel, post_stonks_to_channel};
-use chrono::FixedOffset;
+use chrono::Local;
 use clokwerk::Interval;
 use clokwerk::{AsyncScheduler, Job, TimeUnits};
 
 use crate::{QOTD_CHANNELS, STONKS_CHANNELS};
 
-pub fn setup_jobs() -> AsyncScheduler<FixedOffset> {
-    let mut scheduler = AsyncScheduler::with_tz(FixedOffset::west_opt(5 * 3600).unwrap());
+pub fn setup_jobs() -> AsyncScheduler<Local> {
+    let mut scheduler = AsyncScheduler::with_tz(Local);
 
     // Quote of the Day schedule
     scheduler.every(1.day()).at("5:00 am").run(|| async {
