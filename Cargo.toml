@@ -11,6 +11,7 @@ edition = "2021"
 [dependencies]
 askama_gotham = "^0.13"
 chrono = "^0.4"
+chrono-tz = "*"
 clokwerk = "^0.4"
 env_logger = "^0.10"
 gotham = "^0.7"
