@@ -15,9 +15,10 @@ extern crate gotham_derive;
 use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
+use serenity::all::ApplicationId;
+use serenity::http::Http;
 use serenity::model::id::ChannelId;
 use serenity::prelude::*;
-use serenity::CacheAndHttp;
 use sqlx::migrate::MigrateDatabase;
 
 mod commands;
@@ -40,7 +41,7 @@ lazy_static! {
         .unwrap_or_else(|_| "8080".to_string())
         .parse()
         .expect("PORT is not a number");
-    pub static ref APP_ID: u64 = env::var("APPLICATION_ID")
+    pub static ref APP_ID: ApplicationId = env::var("APPLICATION_ID")
         .expect("Missing APPLICATION_ID env variable")
         .parse()
         .expect("APPLICATION_ID is not a number");
@@ -58,13 +59,13 @@ lazy_static! {
     pub static ref QOTD_CHANNELS: Vec<ChannelId> =
         env::var("QOTD_CHANNELS")
             .unwrap_or_default()
-            .split(",")
+            .split(',')
             .map(|s| s.trim().parse::<u64>().unwrap().into())
             .collect();
     pub static ref STONKS_CHANNELS: Vec<ChannelId> =
         env::var("STONKS_CHANNELS")
             .unwrap_or_default()
-            .split(",")
+            .split(',')
             .map(|s| s.trim().parse::<u64>().unwrap().into())
             .collect();
 
@@ -75,7 +76,7 @@ lazy_static! {
         .expect("Error connecting to database");
 }
 
-pub static CACHE_HTTP: OnceCell<Arc<CacheAndHttp>> = OnceCell::new();
+pub static HTTP: OnceCell<Arc<Http>> = OnceCell::new();
 
 #[tokio::main]
 async fn main() {
@@ -115,9 +116,7 @@ async fn main() {
         .await
         .expect("Error creating client");
 
-    if CACHE_HTTP.set(client.cache_and_http.clone()).is_err() {
-        panic!("Failed to set CACHE_HTTP")
-    }
+    HTTP.set(client.http.clone()).unwrap();
 
     let client_fut = client.start();
 

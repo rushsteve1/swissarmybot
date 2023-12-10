@@ -1,40 +1,24 @@
-use serenity::model::application::interaction::Interaction;
+use serenity::model::application::Interaction;
 use serenity::model::prelude::*;
 use sqlx::Row;
 
-use super::{get_cmd, AsInner};
+use super::get_cmd;
 use crate::models::Quote;
-use crate::{DB_POOL, DOMAIN, PREFIX};
+use crate::{DB_POOL, DOMAIN, HTTP, PREFIX};
 
 pub async fn add(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
 
-    let user = cmd
-        .options
-        .first()
-        .unwrap()
-        .resolved
-        .as_ref()
-        .unwrap()
-        .as_user()
-        .unwrap();
+    let user_id = cmd.value.as_user_id().unwrap();
+    let user = user_id.to_user(HTTP.get().unwrap()).await.unwrap();
+    let text = cmd.value.as_str().unwrap();
 
-    let text = cmd
-        .options
-        .last()
-        .unwrap()
-        .resolved
-        .as_ref()
-        .unwrap()
-        .as_string()
-        .unwrap();
-
-    if let Interaction::ApplicationCommand(inter) = interaction {
+    if let Interaction::Command(inter) = interaction {
         let author = inter.member.as_ref().unwrap();
 
         sqlx::query("INSERT INTO quotes (text, user_id, user_name, author_id, author_name) VALUES (?, ?, ?, ?, ?);")
-                        .bind(&text)
-                        .bind(user.id.0.to_string())
+                        .bind(text)
+                        .bind(user.to_string())
                         .bind(&user.name)
                         .bind(author.user.id.to_string())
                         .bind(author.user.name.to_string())
@@ -50,15 +34,7 @@ pub async fn add(interaction: &Interaction) -> String {
 
 pub async fn remove(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
-    let id = cmd
-        .options
-        .first()
-        .unwrap()
-        .resolved
-        .as_ref()
-        .unwrap()
-        .as_int()
-        .unwrap();
+    let id = cmd.value.as_i64().unwrap();
 
     let row = sqlx::query("DELETE FROM quotes WHERE id = ? RETURNING user_id;")
         .bind(id)
@@ -68,7 +44,7 @@ pub async fn remove(interaction: &Interaction) -> String {
 
     if let Some(row) = row {
         let user_id: i64 = row.get("user_id");
-        let user_id = serenity::model::id::UserId(user_id as u64);
+        let user_id = serenity::model::id::UserId::new(user_id as u64);
 
         format!("Quote {} removed by {}", id, user_id.mention())
     } else {
@@ -78,15 +54,7 @@ pub async fn remove(interaction: &Interaction) -> String {
 
 pub async fn get(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
-    let id = cmd
-        .options
-        .first()
-        .unwrap()
-        .resolved
-        .as_ref()
-        .unwrap()
-        .as_int()
-        .unwrap();
+    let id = cmd.value.as_i64().unwrap();
 
     let quote: Option<Quote> = sqlx::query_as("SELECT * FROM quotes WHERE id = ?;")
         .bind(id)
@@ -99,7 +67,7 @@ pub async fn get(interaction: &Interaction) -> String {
         format!(
             "Quote {} by {}\n>>> {}",
             id,
-            UserId(quote.user_id as u64).mention(),
+            UserId::new(quote.user_id as u64).mention(),
             quote.text
         )
     } else {
@@ -110,9 +78,8 @@ pub async fn get(interaction: &Interaction) -> String {
 pub async fn list(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
 
-    if let Some(user) = cmd.options.first() {
-        let user = user.resolved.as_ref().unwrap().as_user().unwrap();
-        format!("http://{}{}/quotes?user={}", *DOMAIN, *PREFIX, user.id)
+    if let Some(user_id) = cmd.value.as_user_id() {
+        format!("http://{}{}/quotes?user={}", *DOMAIN, *PREFIX, user_id)
     } else {
         format!("http://{}{}/quotes", *DOMAIN, *PREFIX)
     }

@@ -6,13 +6,12 @@ use gotham::router::builder::*;
 use gotham::router::Router;
 use gotham::state::{FromState, State};
 use scraper::{html::Html, selector::Selector};
-use serenity::model::prelude::Mentionable;
-use serenity::model::prelude::*;
+use serenity::all::{ChannelId, CreateMessage, Mentionable, Message};
 
 use super::templates::*;
 use crate::models::*;
 
-use crate::{CACHE_HTTP, DB_POOL, GIT_VERSION, VERSION};
+use crate::{DB_POOL, GIT_VERSION, HTTP, VERSION};
 
 const GOOD_STONKS: &str = "📈";
 const BAD_STONKS: &str = "📉";
@@ -71,7 +70,7 @@ async fn bigmoji(state: State) -> HandlerResult {
 
     let tpl = BigMojiTemplate { bigmoji };
 
-    Ok((state, respond(&tpl, "html")))
+    Ok((state, respond(&tpl)))
 }
 
 async fn bigmoji_csv(state: State) -> HandlerResult {
@@ -87,7 +86,7 @@ async fn bigmoji_csv(state: State) -> HandlerResult {
 
     let tpl = BigMojiCSVTemplate { bigmoji };
 
-    Ok((state, respond(&tpl, "csv")))
+    Ok((state, respond(&tpl)))
 }
 
 async fn quotes(mut state: State) -> HandlerResult {
@@ -102,7 +101,7 @@ async fn quotes(mut state: State) -> HandlerResult {
         to_date,
     };
 
-    Ok((state, respond(&tpl, "html")))
+    Ok((state, respond(&tpl)))
 }
 
 async fn quotes_csv(mut state: State) -> HandlerResult {
@@ -120,7 +119,7 @@ async fn quotes_csv(mut state: State) -> HandlerResult {
 
     let tpl = QuotesCSVTemplate { quotes };
 
-    Ok((state, respond(&tpl, "csv")))
+    Ok((state, respond(&tpl)))
 }
 
 async fn post_random(mut state: State) -> HandlerResult {
@@ -147,8 +146,8 @@ pub async fn post_random_to_channel(
     body: String,
 ) -> Result<Message, serenity::Error> {
     let quote = get_random_quote().await;
-    let user_id = serenity::model::id::UserId(quote.user_id as u64);
-    let author_id = serenity::model::id::UserId(quote.author_id as u64);
+    let user_id = serenity::model::id::UserId::new(quote.user_id as u64);
+    let author_id = serenity::model::id::UserId::new(quote.author_id as u64);
 
     let txt = format!(
         "{}\n#{} by {}, added by {} on <t:{}:f>\n\n>>> {}",
@@ -160,11 +159,8 @@ pub async fn post_random_to_channel(
         quote.text
     );
 
-    chan.send_message(&CACHE_HTTP.get().unwrap().http, |m| {
-        m.content(txt);
-        m
-    })
-    .await
+    chan.send_message(HTTP.get().unwrap(), CreateMessage::new().content(txt))
+        .await
 }
 
 async fn post_stonks(mut state: State) -> HandlerResult {
@@ -198,11 +194,8 @@ pub async fn post_stonks_to_channel(chan: ChannelId) -> Result<Message, serenity
         }
     };
 
-    chan.send_message(&CACHE_HTTP.get().unwrap().http, |m| {
-        m.content(txt);
-        m
-    })
-    .await
+    chan.send_message(HTTP.get().unwrap(), CreateMessage::new().content(txt))
+        .await
 }
 
 // --- Helper Functions ---

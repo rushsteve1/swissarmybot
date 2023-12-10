@@ -5,12 +5,12 @@ mod quotes;
 
 pub use handler::{get_cmd, Handler};
 
-use serenity::model::application::interaction::application_command::CommandDataOptionValue as OptionValue;
+use serenity::model::application::CommandDataOptionValue as OptionValue;
 
 trait AsInner {
     fn as_string(&self) -> Option<&String>;
     fn as_int(&self) -> Option<i64>;
-    fn as_user(&self) -> Option<&serenity::model::user::User>;
+    fn as_user(&self) -> Option<&serenity::model::id::UserId>;
 }
 
 impl AsInner for OptionValue {
@@ -30,8 +30,8 @@ impl AsInner for OptionValue {
         }
     }
 
-    fn as_user(&self) -> Option<&serenity::model::user::User> {
-        if let OptionValue::User(u, _) = self {
+    fn as_user(&self) -> Option<&serenity::model::id::UserId> {
+        if let OptionValue::User(u) = self {
             Some(u)
         } else {
             None

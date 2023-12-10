@@ -1,30 +1,23 @@
-use serenity::client::Context;
-use serenity::model::application::command::Command;
-use serenity::model::application::command::*;
-use serenity::model::id::GuildId;
+use serenity::all::{
+    Command, CommandOptionType, Context, CreateCommand, CreateCommandOption, GuildId,
+};
 
 pub async fn clear_definitions(ctx: &Context) {
-    let commands = Command::get_global_application_commands(&ctx.http)
-        .await
-        .unwrap();
+    let commands = Command::get_global_commands(&ctx.http).await.unwrap();
 
     for command in commands {
-        Command::delete_global_application_command(&ctx.http, command.id)
+        Command::delete_global_command(&ctx.http, command.id)
             .await
             .unwrap();
     }
 }
 
 pub async fn clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
-    let commands = ctx
-        .http
-        .get_guild_application_commands(guild_id.into())
-        .await
-        .unwrap();
+    let commands = ctx.http.get_guild_commands(guild_id).await.unwrap();
 
     for command in commands {
         ctx.http
-            .delete_guild_application_command(guild_id.into(), command.id.into())
+            .delete_guild_command(guild_id, command.id)
             .await
             .unwrap();
     }
@@ -33,129 +26,127 @@ pub async fn clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
 /// Builds the definition of the slash command "interactions" and sends it to
 /// Discord where it can will be displayed
 pub async fn interactions_definition(ctx: Context) -> Vec<Command> {
-    Command::set_global_application_commands(&ctx.http, |commands| {
-        commands
-            .create_application_command(|command| {
-                command
-                    .name("quote")
-                    .description("Manage peoples' quotes")
-                    .create_option(|option| {
-                        option
-                            .name("add")
-                            .kind(CommandOptionType::SubCommand)
-                            .description("Add a quote to the database")
-                            .create_sub_option(|option| {
-                                option
-                                    .name("who")
-                                    .required(true)
-                                    .kind(CommandOptionType::User)
-                                    .description("Who is this quote by?")
-                            })
-                            .create_sub_option(|option| {
-                                option
-                                    .name("text")
-                                    .kind(CommandOptionType::String)
-                                    .required(true)
-                                    .description("What did they say?")
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("remove")
-                            .kind(CommandOptionType::SubCommand)
-                            .description("Remove a quote from the database")
-                            .create_sub_option(|option| {
-                                option
-                                    .name("number")
-                                    .kind(CommandOptionType::Integer)
-                                    .required(true)
-                                    .description("What number quote should be removed?")
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("get")
-                            .kind(CommandOptionType::SubCommand)
-                            .description("Get a quote from the database")
-                            .create_sub_option(|option| {
-                                option
-                                    .name("number")
-                                    .kind(CommandOptionType::Integer)
-                                    .required(true)
-                                    .description("What number quote should be gotten?")
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("list")
-                            .kind(CommandOptionType::SubCommand)
-                            .description("List all the quotes by this user")
-                            .create_sub_option(|option| {
-                                option
-                                    .name("who")
-                                    .kind(CommandOptionType::User)
-                                    .description("Who is this quote by?")
-                            })
-                    })
-            })
-            .create_application_command(|command| {
-                command
-                    .name("bigmoji")
-                    .description("Manage BigMoji (big emoji)")
-                    .create_option(|option| {
-                        option
-                            .name("add")
-                            .kind(CommandOptionType::SubCommand)
-                            .description("Add a BigMoji to the database")
-                            .create_sub_option(|option| {
-                                option
-                                    .name("name")
-                                    .kind(CommandOptionType::String)
-                                    .required(true)
-                                    .description("Name of the BigMoji (without colons)")
-                            })
-                            .create_sub_option(|option| {
-                                option
-                                    .name("text")
-                                    .kind(CommandOptionType::String)
-                                    .required(true)
-                                    .description("What should it say? (links OK)")
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("remove")
-                            .kind(CommandOptionType::SubCommand)
-                            .description("Remove a BigMoji from the database")
-                            .create_sub_option(|option| {
-                                option
-                                    .name("name")
-                                    .kind(CommandOptionType::String)
-                                    .required(true)
-                                    .description("Name of the BigMoji (without colons)")
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("get")
-                            .kind(CommandOptionType::SubCommand)
-                            .description("Get a BigMoji from the database")
-                            .create_sub_option(|option| {
-                                option
-                                    .name("name")
-                                    .kind(CommandOptionType::String)
-                                    .required(true)
-                                    .description("Name of the BigMoji (without colons)")
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("list")
-                            .kind(CommandOptionType::SubCommand)
-                            .description("List all the BigMoji")
-                    })
-            })
-    })
-    .await
-    .expect("Error sending interaction data to Discord")
+    let quote_cmd = CreateCommand::new("quote")
+        .description("Manage peoples' quotes")
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "add",
+                "Add a quote to the database",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(CommandOptionType::User, "who", "Who is this quote by?")
+                    .required(true),
+            )
+            .add_sub_option(
+                CreateCommandOption::new(CommandOptionType::String, "text", "What did they say?")
+                    .required(true),
+            ),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "remove",
+                "Remove a quote from the database",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::Integer,
+                    "number",
+                    "What number quote should be removed?",
+                )
+                .required(true),
+            ),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "get",
+                "Get a quote from the database",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::Integer,
+                    "number",
+                    "What number quote should be gotten?",
+                )
+                .required(true),
+            ),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "list",
+                "List all the quotes by this user",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(CommandOptionType::User, "who", "Who is this quote by?")
+                    .required(true),
+            ),
+        );
+
+    let bigmoji_cmd = CreateCommand::new("bigmoji")
+        .description("Manage BigMoji (big emoji)")
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "add",
+                "Add a BigMoji to the database",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "name",
+                    "Name of the BigMoji (without colons)",
+                )
+                .required(true),
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "text",
+                    "What should it say? (links OK)",
+                )
+                .required(true),
+            ),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "remove",
+                "Remove a BigMoji from the database",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "name",
+                    "Name of the BigMoji (without colons)",
+                )
+                .required(true),
+            ),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "get",
+                "Get a BigMoji from the database",
+            )
+            .add_sub_option(
+                CreateCommandOption::new(
+                    CommandOptionType::String,
+                    "name",
+                    "Name of the BigMoji (without colons)",
+                )
+                .required(true),
+            ),
+        )
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "list",
+            "List all the BigMoji",
+        ));
+
+    Command::set_global_commands(&ctx.http, vec![quote_cmd, bigmoji_cmd])
+        .await
+        .expect("Error sending interaction data to Discord")
 }

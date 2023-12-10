@@ -30,5 +30,5 @@ pub fn setup_jobs() -> AsyncScheduler<chrono_tz::Tz> {
             }
         });
 
-    return scheduler;
+    scheduler
 }

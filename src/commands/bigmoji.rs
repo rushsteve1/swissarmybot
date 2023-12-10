@@ -1,25 +1,16 @@
-use serenity::model::application::interaction::Interaction;
+use serenity::all::Interaction;
 
-use super::{get_cmd, AsInner};
+use super::get_cmd;
 use crate::models::BigMoji;
 use crate::DB_POOL;
 
 pub async fn add(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
 
-    let name = cmd.options.first().unwrap();
-    let mut name = name
-        .resolved
-        .as_ref()
-        .unwrap()
-        .as_string()
-        .unwrap()
-        .replace(':', "")
-        .to_lowercase();
+    let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
 
-    let text = cmd.options.last().unwrap();
-    let text = text.resolved.as_ref().unwrap().as_string().unwrap();
+    let text = cmd.value.as_str().unwrap().to_string();
 
     if name.len() < 3 {
         return "BigMoji name too short".to_string();
@@ -41,15 +32,7 @@ pub async fn add(interaction: &Interaction) -> String {
 pub async fn remove(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
 
-    let name = cmd.options.first().unwrap();
-    let mut name = name
-        .resolved
-        .as_ref()
-        .unwrap()
-        .as_string()
-        .unwrap()
-        .replace(':', "")
-        .to_lowercase();
+    let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
 
     sqlx::query("DELETE FROM bigmoji WHERE name = ?;")
@@ -64,15 +47,7 @@ pub async fn remove(interaction: &Interaction) -> String {
 pub async fn get(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
 
-    let name = cmd.options.first().unwrap();
-    let mut name = name
-        .resolved
-        .as_ref()
-        .unwrap()
-        .as_string()
-        .unwrap()
-        .replace(':', "")
-        .to_lowercase();
+    let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
 
     let moji: Option<BigMoji> = sqlx::query_as("SELECT * FROM bigmoji WHERE name = ?;")

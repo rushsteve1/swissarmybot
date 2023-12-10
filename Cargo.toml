@@ -1,6 +1,6 @@
 [package]
 name = "swiss_army_bot"
-version = "1.4.0-nein"
+version = "1.5.0-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
@@ -9,7 +9,7 @@ edition = "2021"
 # TODO optimize feature flags
 
 [dependencies]
-askama_gotham = "^0.13"
+askama_gotham = "^0.14"
 chrono = "^0.4"
 chrono-tz = "*"
 clokwerk = "^0.4"
@@ -20,26 +20,26 @@ lazy_static = "^1.4"
 log = "^0.4"
 once_cell = "*"
 regex = "*"
-scraper = "^0.14"
+scraper = "^0.18"
 serde = "*"
 serde_derive = "*"
 
 [dependencies.askama]
-version = "^0.11"
+version = "^0.12.1"
 default_features = false
 features = [ "with-gotham" ]
 
 [dependencies.serenity]
-version = "^0.11"
+version = "^0.12"
 default_features = false
 features = [ "client", "gateway", "rustls_backend", "model" ]
 
 [dependencies.sqlx]
-version = "^0.6"
+version = "^0.7"
 features = [ "chrono", "sqlite", "runtime-tokio-rustls" ]
 
 [dependencies.tokio]
-version = "^1.25"
+version = "^1.35"
 features = [ "full" ]
 
 [dependencies.reqwest]

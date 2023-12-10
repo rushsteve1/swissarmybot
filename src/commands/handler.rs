@@ -1,8 +1,8 @@
+use serenity::all::{
+    CommandDataOption, Context, CreateInteractionResponse, CreateInteractionResponseMessage,
+    EventHandler, Interaction, Message, Reaction, ReactionType, Ready,
+};
 use serenity::async_trait;
-use serenity::model::application::interaction::application_command::CommandDataOption;
-use serenity::model::application::interaction::{Interaction, InteractionResponseType};
-use serenity::model::prelude::*;
-use serenity::prelude::*;
 
 use super::definition::{clear_definitions, clear_definitions_for_guild, interactions_definition};
 use crate::models::BigMoji;
@@ -38,7 +38,7 @@ impl EventHandler for Handler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(ref inter) = interaction {
+        if let Interaction::Command(ref inter) = interaction {
             let content = match inter.data.name.as_str() {
                 "quote" => handle_quote_command(&interaction).await,
                 "bigmoji" => handle_bigmoji_command(&interaction).await,
@@ -46,14 +46,15 @@ impl EventHandler for Handler {
             };
 
             if let Err(e) = inter
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| message.content(content))
-                })
+                .create_response(
+                    ctx,
+                    CreateInteractionResponse::Message(
+                        CreateInteractionResponseMessage::new().content(content),
+                    ),
+                )
                 .await
             {
-                error!("Error responding to slash command {:?}", e);
+                error!("Error responding to slash command {:?}", e)
             }
         } else {
             warn!("Slash command interaction had no data {:?}", interaction);
@@ -88,7 +89,7 @@ impl EventHandler for Handler {
     async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
         let message = ctx
             .http
-            .get_message(reaction.channel_id.into(), reaction.message_id.into())
+            .get_message(reaction.channel_id, reaction.message_id)
             .await
             .unwrap();
         let react = reaction.emoji;
@@ -138,7 +139,7 @@ async fn handle_bigmoji_command(interaction: &Interaction) -> String {
 }
 
 pub fn get_cmd(interaction: &Interaction) -> &CommandDataOption {
-    if let Interaction::ApplicationCommand(inter) = interaction {
+    if let Interaction::Command(inter) = interaction {
         inter.data.options.first().unwrap()
     } else {
         unreachable!()
