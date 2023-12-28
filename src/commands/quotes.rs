@@ -1,6 +1,5 @@
 use serenity::model::application::Interaction;
 use serenity::model::prelude::*;
-use sqlx::Row;
 
 use super::get_cmd;
 use crate::models::Quote;
@@ -16,12 +15,14 @@ pub async fn add(interaction: &Interaction) -> String {
     if let Interaction::Command(inter) = interaction {
         let author = inter.member.as_ref().unwrap();
 
-        sqlx::query("INSERT INTO quotes (text, user_id, user_name, author_id, author_name) VALUES (?, ?, ?, ?, ?);")
-                        .bind(text)
-                        .bind(user.to_string())
-                        .bind(&user.name)
-                        .bind(author.user.id.to_string())
-                        .bind(author.user.name.to_string())
+        let id = user_id.to_string();
+        let name = &user.name;
+        let author_id = author.user.id.to_string();
+        let author_name = author.user.name.to_string();
+
+        sqlx::query!("INSERT INTO quotes (text, user_id, user_name, author_id, author_name) VALUES (?, ?, ?, ?, ?);",
+                        text,
+                        id, name, author_id, author_name)
                         .execute(&*DB_POOL)
                         .await
                         .expect("Error inserting quote");
@@ -36,14 +37,12 @@ pub async fn remove(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
     let id = cmd.value.as_i64().unwrap();
 
-    let row = sqlx::query("DELETE FROM quotes WHERE id = ? RETURNING user_id;")
-        .bind(id)
+    let row = sqlx::query_scalar!("DELETE FROM quotes WHERE id = ? RETURNING user_id;", id)
         .fetch_optional(&*DB_POOL)
         .await
         .expect("Error deleting quote");
 
-    if let Some(row) = row {
-        let user_id: i64 = row.get("user_id");
+    if let Some(user_id) = row {
         let user_id = serenity::model::id::UserId::new(user_id as u64);
 
         format!("Quote {} removed by {}", id, user_id.mention())
@@ -56,8 +55,7 @@ pub async fn get(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
     let id = cmd.value.as_i64().unwrap();
 
-    let quote: Option<Quote> = sqlx::query_as("SELECT * FROM quotes WHERE id = ?;")
-        .bind(id)
+    let quote: Option<Quote> = sqlx::query_as!(Quote, "SELECT * FROM quotes WHERE id = ?;", id)
         .fetch_optional(&*DB_POOL)
         .await
         .expect("Error getting quote");

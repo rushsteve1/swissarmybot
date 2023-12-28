@@ -53,6 +53,7 @@ pub fn router() -> Router {
             .post("/stonks")
             .with_query_string_extractor::<ChannelQuery>()
             .to_async(post_stonks);
+        route.get("/drunks").to_async(drunks)
     })
 }
 
@@ -118,6 +119,13 @@ async fn quotes_csv(mut state: State) -> HandlerResult {
         .collect();
 
     let tpl = QuotesCSVTemplate { quotes };
+
+    Ok((state, respond(&tpl)))
+}
+
+async fn drunks(state: State) -> HandlerResult {
+    let drunks = get_drunks().await;
+    let tpl = DrunksTemplate { drunks };
 
     Ok((state, respond(&tpl)))
 }
@@ -201,7 +209,7 @@ pub async fn post_stonks_to_channel(chan: ChannelId) -> Result<Message, serenity
 // --- Helper Functions ---
 
 async fn get_bigmoji() -> Vec<BigMoji> {
-    sqlx::query_as::<_, BigMoji>("SELECT * FROM bigmoji;")
+    sqlx::query_as!(BigMoji, "SELECT * FROM bigmoji;")
         .fetch_all(&*DB_POOL)
         .await
         .expect("Error getting bigmoji")
@@ -216,22 +224,26 @@ async fn get_quotes(query: QuotesQuery) -> (Vec<Quote>, i64, String, String) {
     let user_id = query.user.unwrap_or(0);
 
     let quotes = if user_id > 0 {
-        sqlx::query_as::<_, Quote>(
+        sqlx::query_as!(
+            Quote,
             "SELECT * FROM quotes WHERE user_id = ? AND inserted_at BETWEEN ? AND ?;",
+            user_id,
+            from_date,
+            to_date
         )
-        .bind(user_id)
-        .bind(from_date)
-        .bind(to_date)
         .fetch_all(&*DB_POOL)
         .await
         .expect("Error getting quotes")
     } else {
-        sqlx::query_as::<_, Quote>("SELECT * FROM quotes WHERE inserted_at BETWEEN ? AND ?;")
-            .bind(from_date)
-            .bind(to_date)
-            .fetch_all(&*DB_POOL)
-            .await
-            .expect("Error getting quotes")
+        sqlx::query_as!(
+            Quote,
+            "SELECT * FROM quotes WHERE inserted_at BETWEEN ? AND ?;",
+            from_date,
+            to_date
+        )
+        .fetch_all(&*DB_POOL)
+        .await
+        .expect("Error getting quotes")
     };
 
     (
@@ -242,8 +254,15 @@ async fn get_quotes(query: QuotesQuery) -> (Vec<Quote>, i64, String, String) {
     )
 }
 
+async fn get_drunks() -> Vec<Drunk> {
+    sqlx::query_as!(Drunk, "SELECT * FROM drunk;")
+        .fetch_all(&*DB_POOL)
+        .await
+        .expect("Error getting drunks")
+}
+
 async fn get_random_quote() -> Quote {
-    sqlx::query_as::<_, Quote>("SELECT * FROM quotes ORDER BY RANDOM() LIMIT 1;")
+    sqlx::query_as!(Quote, "SELECT * FROM quotes ORDER BY RANDOM() LIMIT 1;")
         .fetch_one(&*DB_POOL)
         .await
         .expect("Error getting quote")

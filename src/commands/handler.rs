@@ -4,7 +4,7 @@ use serenity::all::{
 };
 use serenity::async_trait;
 
-use super::definition::{clear_definitions, clear_definitions_for_guild, interactions_definition};
+use super::definition::interactions_definition;
 use crate::models::BigMoji;
 use crate::{DB_POOL, DOMAIN, PREFIX};
 
@@ -15,25 +15,10 @@ pub struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, ctx: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, _ready: Ready) {
         println!("SwissArmyBot is ready!");
 
-        let clear: bool = std::option_env!("CLEAR_DEFINITIONS")
-            .unwrap_or("false")
-            .parse()
-            .unwrap();
-
-        if clear {
-            warn!("Clearing slash command definitions");
-            clear_definitions(&ctx).await;
-
-            for guild in ready.guilds {
-                if guild.unavailable {
-                    clear_definitions_for_guild(&ctx, guild.id).await;
-                }
-            }
-        }
-
+        // Upserts the existing commands
         let _commands = interactions_definition(ctx).await;
     }
 
@@ -42,6 +27,7 @@ impl EventHandler for Handler {
             let content = match inter.data.name.as_str() {
                 "quote" => handle_quote_command(&interaction).await,
                 "bigmoji" => handle_bigmoji_command(&interaction).await,
+                "drunk" => handle_drunk_command(&interaction).await,
                 _ => "Unknown Command".to_string(),
             };
 
@@ -136,6 +122,10 @@ async fn handle_bigmoji_command(interaction: &Interaction) -> String {
         "list" => format!("http://{}{}/bigmoji", *DOMAIN, *PREFIX),
         _ => "Unknown Option!".to_string(),
     }
+}
+
+async fn handle_drunk_command(interaction: &Interaction) -> String {
+    super::drunk::update(interaction).await
 }
 
 pub fn get_cmd(interaction: &Interaction) -> &CommandDataOption {

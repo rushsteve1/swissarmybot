@@ -1,5 +1,6 @@
 mod bigmoji;
 mod definition;
+mod drunk;
 mod handler;
 mod quotes;
 

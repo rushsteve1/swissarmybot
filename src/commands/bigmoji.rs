@@ -19,12 +19,14 @@ pub async fn add(interaction: &Interaction) -> String {
     // Prevents recursive BigMoji
     let text = text.replace(&format!(":{}:", name), "");
 
-    sqlx::query("INSERT INTO bigmoji (name, text) VALUES (?, ?);")
-        .bind(&name)
-        .bind(text)
-        .execute(&*DB_POOL)
-        .await
-        .expect("Error inserting bigmoji");
+    sqlx::query!(
+        "INSERT INTO bigmoji (name, text) VALUES (?, ?);",
+        name,
+        text
+    )
+    .execute(&*DB_POOL)
+    .await
+    .expect("Error inserting bigmoji");
 
     format!("BigMoji `:{}:` added", name)
 }
@@ -35,8 +37,7 @@ pub async fn remove(interaction: &Interaction) -> String {
     let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
 
-    sqlx::query("DELETE FROM bigmoji WHERE name = ?;")
-        .bind(&name)
+    sqlx::query!("DELETE FROM bigmoji WHERE name = ?;", name)
         .execute(&*DB_POOL)
         .await
         .expect("Error deleting bigmoji");
@@ -50,11 +51,11 @@ pub async fn get(interaction: &Interaction) -> String {
     let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
 
-    let moji: Option<BigMoji> = sqlx::query_as("SELECT * FROM bigmoji WHERE name = ?;")
-        .bind(&name)
-        .fetch_optional(&*DB_POOL)
-        .await
-        .expect("Error getting bigmoji");
+    let moji: Option<BigMoji> =
+        sqlx::query_as!(BigMoji, "SELECT * FROM bigmoji WHERE name = ?;", name)
+            .fetch_optional(&*DB_POOL)
+            .await
+            .expect("Error getting bigmoji");
 
     if let Some(moji) = moji {
         moji.text

@@ -2,7 +2,8 @@ use serenity::all::{
     Command, CommandOptionType, Context, CreateCommand, CreateCommandOption, GuildId,
 };
 
-pub async fn clear_definitions(ctx: &Context) {
+pub async fn _clear_definitions(ctx: &Context) {
+    warn!("Clearing slash command definitions");
     let commands = Command::get_global_commands(&ctx.http).await.unwrap();
 
     for command in commands {
@@ -12,7 +13,7 @@ pub async fn clear_definitions(ctx: &Context) {
     }
 }
 
-pub async fn clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
+pub async fn _clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
     let commands = ctx.http.get_guild_commands(guild_id).await.unwrap();
 
     for command in commands {
@@ -146,7 +147,35 @@ pub async fn interactions_definition(ctx: Context) -> Vec<Command> {
             "List all the BigMoji",
         ));
 
-    Command::set_global_commands(&ctx.http, vec![quote_cmd, bigmoji_cmd])
+    let drunk_cmd = CreateCommand::new("drunk")
+        .description("Record your tipsy times")
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "beer",
+            "A pint of Guinness",
+        ))
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "wine",
+            "Look at you being fancy",
+        ))
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "shot",
+            "Hell yeah",
+        ))
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "cocktail",
+            "Hangover-proof recipe: Liquid IV and Vodka",
+        ))
+        .add_option(CreateCommandOption::new(
+            CommandOptionType::SubCommand,
+            "derby",
+            "🎺 🏇",
+        ));
+
+    Command::set_global_commands(&ctx.http, vec![quote_cmd, bigmoji_cmd, drunk_cmd])
         .await
         .expect("Error sending interaction data to Discord")
 }

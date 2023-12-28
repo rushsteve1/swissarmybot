@@ -1,6 +1,6 @@
 FROM rust:alpine AS builder
 
-RUN apk add --no-cache git musl-dev
+RUN apk add --no-cache git musl-dev sqlite
 
 WORKDIR /app
 
@@ -12,8 +12,14 @@ RUN mkdir src && touch src/lib.rs
 COPY Cargo.toml Cargo.lock .
 RUN cargo build --release -j 8
 
-# Build SAB
+# Copy everything in
 COPY . .
+
+# Setup DB for building
+RUN cat migrations/*.sql | sqlite3 ./sab_build.sqlite
+ENV DATABASE_URL=sqlite://./sab_build.sqlite
+
+# Build SAB
 RUN cargo build --release -j 8
 RUN strip /app/target/release/swiss_army_bot
 
@@ -34,10 +40,10 @@ COPY --from=builder /app/target/release/swiss_army_bot .
 VOLUME /app/swissarmy.sqlite
 
 ENV RUST_LOG="warn"
-ENV DATABASE_PATH="/app/swissarmy.sqlite"
+ENV DATABASE_URL="/app/swissarmy.sqlite"
 ENV WEB_DOMAIN="sab.rushsteve1.us"
 
-ENV STONKS_CHANNELS="859531364906172436,1026256507261689966"
+ENV STONKS_CHANNELS="859531364906172436"
 ENV QOTD_CHANNELS="421467319835820035"
 
 ENV PORT="8080"

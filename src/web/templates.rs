@@ -35,6 +35,12 @@ pub struct QuotesCSVTemplate {
     pub quotes: Vec<Quote>,
 }
 
+#[derive(Template)]
+#[template(path = "drunks.html")]
+pub struct DrunksTemplate {
+    pub drunks: Vec<Drunk>,
+}
+
 mod filters {
     pub fn env(name: &str) -> askama::Result<String> {
         Ok(std::env::var(name).unwrap_or_else(|_| String::new()))

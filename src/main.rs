@@ -45,7 +45,7 @@ lazy_static! {
         .expect("Missing APPLICATION_ID env variable")
         .parse()
         .expect("APPLICATION_ID is not a number");
-    pub static ref DB_PATH: String = env::var("DATABASE_PATH").unwrap_or_else(|_| {
+    pub static ref DB_PATH: String = env::var("DATABASE_URL").unwrap_or_else(|_| {
         env::temp_dir()
             .join("swissarmy.sqlite")
             .into_os_string()
