@@ -1,15 +1,16 @@
 use std::env;
 use std::sync::Arc;
 
-use log::{debug, error, info, warn};
 use once_cell::sync::OnceCell;
 use serenity::all::ApplicationId;
 use serenity::http::Http;
 use serenity::model::id::ChannelId;
 use serenity::prelude::*;
 use sqlx::migrate::MigrateDatabase;
+use tracing::{debug, error, info, instrument};
 
 mod commands;
+mod helpers;
 mod jobs;
 mod web;
 
@@ -20,6 +21,7 @@ use jobs::setup_jobs;
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
 pub const GIT_VERSION: Option<&'static str> = std::option_env!("GIT_VERSION");
 
+// TODO clean up this disaster
 lazy_static::lazy_static! {
     // Get configuration from environment variables
     // These make working with SAB in a docker container much easier
@@ -66,8 +68,12 @@ lazy_static::lazy_static! {
 pub static HTTP: OnceCell<Arc<Http>> = OnceCell::new();
 
 #[tokio::main]
+#[instrument]
 async fn main() {
-    env_logger::init();
+    // Setup tracing
+    let subscriber = tracing_subscriber::FmtSubscriber::new();
+    tracing::subscriber::set_global_default(subscriber).expect("Subscriber failed to set");
+
     info!("Starting up SwissArmyBot {}...", VERSION);
 
     // Check the database path properly, creating the database if needed
@@ -123,22 +129,17 @@ async fn main() {
     // We're running both Serenity and Gotham in Tokio workers, and neither of
     // them should ever exit, so we wait for them and print an error if they do.
     debug!("Starting event loop...");
-    loop {
-        tokio::select!(
-            e = client_fut => {
-                error!("Serenity exited with {:?}", e.unwrap_err());
-                break;
-            }
-            e = gotham_fut => {
-                error!("Gotham exited with {:?}", e.unwrap_err());
-                break;
-            }
-            e = job_fut => {
-                error!("Clokwerk exited with {:?}", e.unwrap_err());
-                break;
-            }
-        )
-    }
+    tokio::select!(
+        e = client_fut => {
+            error!("Serenity exited with {:?}", e.unwrap_err());
+        }
+        e = gotham_fut => {
+            error!("Gotham exited with {:?}", e.unwrap_err());
+        }
+        e = job_fut => {
+            error!("Clokwerk exited with {:?}", e.unwrap_err());
+        }
+    );
 
     // If it gets to this point then it has exited abnormally
     error!("SwissArmyBot has exited, whoops!");

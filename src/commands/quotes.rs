@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use serenity::model::application::Interaction;
 use serenity::model::prelude::*;
+use tracing::instrument;
 
 use super::get_cmd;
 use crate::{DB_POOL, DOMAIN, HTTP, PREFIX};
@@ -16,6 +17,7 @@ pub struct Quote {
     pub inserted_at: NaiveDateTime,
 }
 
+#[instrument]
 pub async fn add(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
 
@@ -62,6 +64,7 @@ pub async fn remove(interaction: &Interaction) -> String {
     }
 }
 
+#[instrument]
 pub async fn get(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
     let id = cmd.value.as_i64().unwrap();
@@ -84,6 +87,7 @@ pub async fn get(interaction: &Interaction) -> String {
     }
 }
 
+#[instrument]
 pub async fn list(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
 

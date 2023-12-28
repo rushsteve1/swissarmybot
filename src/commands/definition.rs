@@ -1,8 +1,9 @@
-use log::warn;
 use serenity::all::{
     Command, CommandOptionType, Context, CreateCommand, CreateCommandOption, GuildId,
 };
+use tracing::{instrument, warn};
 
+#[instrument]
 pub async fn _clear_definitions(ctx: &Context) {
     warn!("Clearing slash command definitions");
     let commands = Command::get_global_commands(&ctx.http).await.unwrap();
@@ -14,6 +15,7 @@ pub async fn _clear_definitions(ctx: &Context) {
     }
 }
 
+#[instrument]
 pub async fn _clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
     warn!("Clearing slash command definitions for guild {}", guild_id);
     let commands = ctx.http.get_guild_commands(guild_id).await.unwrap();
@@ -28,6 +30,7 @@ pub async fn _clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
 
 /// Builds the definition of the slash command "interactions" and sends it to
 /// Discord where it can will be displayed
+#[instrument]
 pub async fn interactions_definition(ctx: Context) -> Vec<Command> {
     let quote_cmd = CreateCommand::new("quote")
         .description("Manage peoples' quotes")

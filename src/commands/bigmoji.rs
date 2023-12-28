@@ -1,5 +1,6 @@
 use chrono::NaiveDateTime;
 use serenity::all::Interaction;
+use tracing::instrument;
 
 use super::get_cmd;
 use crate::DB_POOL;
@@ -11,6 +12,7 @@ pub struct BigMoji {
     pub inserted_at: NaiveDateTime,
 }
 
+#[instrument]
 pub async fn add(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);
 

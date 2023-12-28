@@ -10,22 +10,22 @@ edition = "2021"
 
 [dependencies]
 askama_gotham = "^0.14"
-chrono = "^0.4"
+chrono = "*"
 chrono-tz = "*"
 clokwerk = "^0.4"
-env_logger = "^0.10"
 gotham = "^0.7"
 gotham_derive = "^0.7"
-lazy_static = "^1.4"
-log = "^0.4"
+lazy_static = "*"
 once_cell = "*"
 regex = "*"
 scraper = "^0.18"
 serde = "*"
 serde_derive = "*"
+tracing = "*"
+tracing-subscriber = "^0.3"
 
 [dependencies.askama]
-version = "^0.12.1"
+version = "^0.12"
 default_features = false
 features = [ "with-gotham" ]
 

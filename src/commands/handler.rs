@@ -1,9 +1,9 @@
-use log::{error, warn, info};
 use serenity::all::{
     CommandDataOption, Context, CreateInteractionResponse, CreateInteractionResponseMessage,
     EventHandler, Interaction, Message, Reaction, ReactionType, Ready,
 };
 use serenity::async_trait;
+use tracing::{error, info, instrument, warn};
 
 use super::definition::interactions_definition;
 use crate::commands::bigmoji::BigMoji;
@@ -12,10 +12,12 @@ use crate::{DB_POOL, DOMAIN, PREFIX};
 const DOWN: &str = "⬇️";
 const DOWNVOTE_LIMIT: u8 = 5;
 
+#[derive(Debug)]
 pub struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
+    #[instrument]
     async fn ready(&self, ctx: Context, _ready: Ready) {
         info!("SwissArmyBot is ready!");
 
@@ -23,6 +25,7 @@ impl EventHandler for Handler {
         let _commands = interactions_definition(ctx).await;
     }
 
+    #[instrument]
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(ref inter) = interaction {
             let content = match inter.data.name.as_str() {
@@ -48,6 +51,7 @@ impl EventHandler for Handler {
         }
     }
 
+    #[instrument]
     async fn message(&self, ctx: Context, message: Message) {
         // Don't bother with bot messages (including our own)
         if message.author.bot {
