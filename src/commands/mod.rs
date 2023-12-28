@@ -4,7 +4,10 @@ mod drunk;
 mod handler;
 mod quotes;
 
+pub use bigmoji::BigMoji;
+pub use drunk::Drunk;
 pub use handler::{get_cmd, Handler};
+pub use quotes::Quote;
 
 use serenity::model::application::CommandDataOptionValue as OptionValue;
 

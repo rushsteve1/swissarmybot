@@ -1,8 +1,15 @@
+use chrono::NaiveDateTime;
 use serenity::all::Interaction;
 
 use super::get_cmd;
-use crate::models::BigMoji;
 use crate::DB_POOL;
+
+#[derive(sqlx::FromRow)]
+pub struct BigMoji {
+    pub name: String,
+    pub text: String,
+    pub inserted_at: NaiveDateTime,
+}
 
 pub async fn add(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);

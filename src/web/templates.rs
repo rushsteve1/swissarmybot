@@ -1,4 +1,4 @@
-use crate::models::*;
+use crate::commands::{BigMoji, Drunk, Quote};
 use askama::Template;
 
 #[derive(Template)]

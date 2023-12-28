@@ -1,7 +1,21 @@
+use chrono::NaiveDateTime;
 use serenity::all::{Interaction, Mentionable};
 
 use super::get_cmd;
 use crate::DB_POOL;
+
+#[derive(sqlx::FromRow)]
+pub struct Drunk {
+    pub id: i64,
+    pub user_id: i64,
+    pub user_name: String,
+    pub beer: i64,
+    pub wine: i64,
+    pub shots: i64,
+    pub cocktails: i64,
+    pub derby: i64,
+    pub updated_at: NaiveDateTime,
+}
 
 pub async fn update(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);

@@ -1,19 +1,7 @@
 use std::env;
-
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate serde_derive;
-
-#[macro_use]
-extern crate gotham_derive;
-
 use std::sync::Arc;
 
+use log::{debug, error, info, warn};
 use once_cell::sync::OnceCell;
 use serenity::all::ApplicationId;
 use serenity::http::Http;
@@ -23,7 +11,6 @@ use sqlx::migrate::MigrateDatabase;
 
 mod commands;
 mod jobs;
-mod models;
 mod web;
 
 use commands::Handler;
@@ -33,7 +20,7 @@ use jobs::setup_jobs;
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
 pub const GIT_VERSION: Option<&'static str> = std::option_env!("GIT_VERSION");
 
-lazy_static! {
+lazy_static::lazy_static! {
     // Get configuration from environment variables
     // These make working with SAB in a docker container much easier
     pub static ref TOKEN: String  = env::var("DISCORD_TOKEN").expect("Missing DISCORD_TOKEN env variable");
@@ -81,7 +68,7 @@ pub static HTTP: OnceCell<Arc<Http>> = OnceCell::new();
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    println!("Starting up SwissArmyBot {}...", VERSION);
+    info!("Starting up SwissArmyBot {}...", VERSION);
 
     // Check the database path properly, creating the database if needed
     let path_e = std::fs::canonicalize(&*DB_PATH);
@@ -154,6 +141,6 @@ async fn main() {
     }
 
     // If it gets to this point then it has exited abnormally
-    warn!("SwissArmyBot has exited, whoops!");
+    error!("SwissArmyBot has exited, whoops!");
     std::process::exit(1);
 }

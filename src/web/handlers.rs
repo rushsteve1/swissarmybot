@@ -5,11 +5,14 @@ use gotham::hyper::StatusCode;
 use gotham::router::builder::*;
 use gotham::router::Router;
 use gotham::state::{FromState, State};
+use gotham_derive::StateData;
+use gotham_derive::StaticResponseExtender;
 use scraper::{html::Html, selector::Selector};
+use serde::Deserialize;
 use serenity::all::{ChannelId, CreateMessage, Mentionable, Message};
 
 use super::templates::*;
-use crate::models::*;
+use crate::commands::{BigMoji, Drunk, Quote};
 
 use crate::{DB_POOL, GIT_VERSION, HTTP, VERSION};
 

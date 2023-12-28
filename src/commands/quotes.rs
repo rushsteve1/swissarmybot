@@ -1,9 +1,20 @@
+use chrono::NaiveDateTime;
 use serenity::model::application::Interaction;
 use serenity::model::prelude::*;
 
 use super::get_cmd;
-use crate::models::Quote;
 use crate::{DB_POOL, DOMAIN, HTTP, PREFIX};
+
+#[derive(sqlx::FromRow)]
+pub struct Quote {
+    pub id: i64,
+    pub user_id: i64,
+    pub user_name: String,
+    pub author_id: i64,
+    pub author_name: String,
+    pub text: String,
+    pub inserted_at: NaiveDateTime,
+}
 
 pub async fn add(interaction: &Interaction) -> String {
     let cmd = get_cmd(interaction);

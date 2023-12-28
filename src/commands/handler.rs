@@ -1,3 +1,4 @@
+use log::{error, warn, info};
 use serenity::all::{
     CommandDataOption, Context, CreateInteractionResponse, CreateInteractionResponseMessage,
     EventHandler, Interaction, Message, Reaction, ReactionType, Ready,
@@ -5,7 +6,7 @@ use serenity::all::{
 use serenity::async_trait;
 
 use super::definition::interactions_definition;
-use crate::models::BigMoji;
+use crate::commands::bigmoji::BigMoji;
 use crate::{DB_POOL, DOMAIN, PREFIX};
 
 const DOWN: &str = "⬇️";
@@ -16,7 +17,7 @@ pub struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, _ready: Ready) {
-        println!("SwissArmyBot is ready!");
+        info!("SwissArmyBot is ready!");
 
         // Upserts the existing commands
         let _commands = interactions_definition(ctx).await;

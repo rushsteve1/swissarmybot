@@ -1,3 +1,4 @@
+use log::warn;
 use serenity::all::{
     Command, CommandOptionType, Context, CreateCommand, CreateCommandOption, GuildId,
 };
@@ -14,6 +15,7 @@ pub async fn _clear_definitions(ctx: &Context) {
 }
 
 pub async fn _clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
+    warn!("Clearing slash command definitions for guild {}", guild_id);
     let commands = ctx.http.get_guild_commands(guild_id).await.unwrap();
 
     for command in commands {
