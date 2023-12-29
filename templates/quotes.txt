@@ -1,4 +1,0 @@
-id,user_id,user_name,author_id,author_name,text,inserted_at
-{% for q in quotes %}
-{{ q.id }},{{ q.user_id }},{{ q.user_name }},{{ q.author_id }},{{ q.author_name }},"{{ q.text }}",{{ q.inserted_at }}
-{% endfor %}

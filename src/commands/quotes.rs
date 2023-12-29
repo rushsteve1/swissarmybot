@@ -1,8 +1,8 @@
-use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use chrono::NaiveDateTime;
 use serenity::all::UserId;
-use serenity::all::{Context as Ctx, Interaction, Mentionable};
+use serenity::all::{CommandDataOptionValue, Context as Ctx, Interaction, Mentionable};
 use tracing::instrument;
 
 use crate::helpers::domain;
@@ -24,17 +24,21 @@ pub async fn add(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
     let db = get_db(ctx.clone()).await?;
     let cmd = get_cmd(interaction)?;
 
-    let Some(user_id) = cmd.value.as_user_id() else {
-        anyhow::bail!("no user id");
+    let CommandDataOptionValue::SubCommand(cmds) = cmd.value.clone() else {
+        bail!("was not subcommand");
+    };
+
+    let Some(user_id) = cmds[0].value.as_user_id() else {
+        bail!("no user id");
     };
     let user = user_id.to_user(ctx).await?;
-    let Some(text) = cmd.value.as_str() else {
-        anyhow::bail!("no quote text")
+    let Some(text) = cmds[1].value.as_str() else {
+        bail!("no quote text")
     };
 
     let inter = get_inter(interaction)?;
     let Some(author) = inter.member.as_ref() else {
-        anyhow::bail!("no quote author")
+        bail!("no quote author")
     };
 
     let id = user_id.to_string();
@@ -55,7 +59,15 @@ pub async fn add(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
 pub async fn remove(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
     let db = get_db(ctx).await?;
     let cmd = get_cmd(interaction)?;
-    let id = cmd.value.as_i64().ok_or(anyhow::anyhow!("quote get id"))?;
+
+    let CommandDataOptionValue::SubCommand(cmds) = cmd.value.clone() else {
+        bail!("was not subcommand");
+    };
+
+    let id = cmds[0]
+        .value
+        .as_i64()
+        .ok_or(anyhow::anyhow!("quote get id"))?;
 
     let row = sqlx::query_scalar!("DELETE FROM quotes WHERE id = ? RETURNING user_id;", id)
         .fetch_optional(&db)
@@ -75,7 +87,15 @@ pub async fn remove(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<Strin
 pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
     let db = get_db(ctx).await?;
     let cmd = get_cmd(interaction)?;
-    let id = cmd.value.as_i64().ok_or(anyhow!("quote get id"))?;
+
+    let CommandDataOptionValue::SubCommand(cmds) = cmd.value.clone() else {
+        bail!("was not subcommand");
+    };
+
+    let id = cmds[0]
+        .value
+        .as_i64()
+        .ok_or(anyhow::anyhow!("quote get id"))?;
 
     let quote: Option<Quote> = sqlx::query_as!(Quote, "SELECT * FROM quotes WHERE id = ?;", id)
         .fetch_optional(&db)

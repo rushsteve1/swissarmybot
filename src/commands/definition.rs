@@ -5,28 +5,27 @@ use serenity::all::{
 use tracing::{instrument, warn};
 
 #[instrument]
-pub async fn _clear_definitions(ctx: Ctx) {
+pub async fn _clear_definitions(ctx: Ctx) -> anyhow::Result<()> {
     warn!("Clearing slash command definitions");
-    let commands = Command::get_global_commands(ctx.clone()).await.unwrap();
+    let commands = Command::get_global_commands(ctx.clone()).await?;
 
     for command in commands {
-        Command::delete_global_command(ctx.clone(), command.id)
-            .await
-            .unwrap();
+        Command::delete_global_command(ctx.clone(), command.id).await?;
     }
+
+    Ok(())
 }
 
 #[instrument]
-pub async fn _clear_definitions_for_guild(ctx: Ctx, guild_id: GuildId) {
+pub async fn _clear_definitions_for_guild(ctx: Ctx, guild_id: GuildId) -> anyhow::Result<()> {
     warn!("Clearing slash command definitions for guild {}", guild_id);
-    let commands = ctx.http.get_guild_commands(guild_id).await.unwrap();
+    let commands = ctx.http.get_guild_commands(guild_id).await?;
 
     for command in commands {
-        ctx.http
-            .delete_guild_command(guild_id, command.id)
-            .await
-            .unwrap();
+        ctx.http.delete_guild_command(guild_id, command.id).await?;
     }
+
+    Ok(())
 }
 
 /// Builds the definition of the slash command "interactions" and sends it to
@@ -93,7 +92,7 @@ pub async fn interactions_definition(ctx: Ctx) -> anyhow::Result<Vec<Command>> {
             )),
         );
 
-    let bigmoji_cmd = CreateCommand::new("bigmoji")
+    let _bigmoji_cmd = CreateCommand::new("bigmoji")
         .description("Manage BigMoji (big emoji)")
         .add_option(
             CreateCommandOption::new(
@@ -185,7 +184,7 @@ pub async fn interactions_definition(ctx: Ctx) -> anyhow::Result<Vec<Command>> {
                 .add_sub_option(drink_name_subcmd),
         );
 
-    Command::set_global_commands(ctx, vec![quote_cmd, bigmoji_cmd, drunk_cmd])
+    Command::set_global_commands(ctx, vec![quote_cmd, drunk_cmd])
         .await
         .with_context(|| "Error sending interaction data to Discord")
 }

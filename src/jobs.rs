@@ -16,12 +16,12 @@ pub fn setup_jobs(db: sqlx::SqlitePool, http: Arc<Http>) -> AsyncScheduler<chron
     let stonks_channels: Vec<ChannelId> = env::var("STONKS_CHANNELS")
         .unwrap_or_default()
         .split(',')
-        .map(|s| s.trim().parse::<u64>().unwrap().into())
+        .filter_map(|s| s.trim().parse::<u64>().ok().map(|i| i.into()))
         .collect();
     let qotd_channels: Vec<ChannelId> = env::var("QOTD_CHANNELS")
         .unwrap_or_default()
         .split(',')
-        .map(|s| s.trim().parse::<u64>().unwrap().into())
+        .filter_map(|s| s.trim().parse::<u64>().ok().map(|i| i.into()))
         .collect();
 
     {

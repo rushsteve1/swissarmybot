@@ -37,7 +37,8 @@ features = [ "client", "gateway", "rustls_backend", "model" ]
 
 [dependencies.sqlx]
 version = "^0.7"
-features = [ "chrono", "sqlite", "runtime-tokio-rustls" ]
+default_features = false
+features = [ "macros", "migrate", "chrono", "sqlite", "runtime-tokio" ]
 
 [dependencies.tokio]
 version = "^1.35"

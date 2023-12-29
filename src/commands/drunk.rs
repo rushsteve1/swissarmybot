@@ -16,6 +16,8 @@ pub struct Drunk {
     pub cocktails: i64,
     pub derby: i64,
     pub updated_at: NaiveDateTime,
+    pub score: i64,
+    pub last_spill: Option<NaiveDateTime>,
 }
 
 #[instrument]
@@ -23,9 +25,18 @@ pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::
     let inter = get_inter(interaction)?;
     let cmd = get_cmd(interaction)?;
 
-    let author = inter.member.as_ref().unwrap();
+    let author = inter
+        .member
+        .as_ref()
+        .ok_or(anyhow::anyhow!("interaction had no author"))?;
     let author_id = author.user.id.to_string();
     let author_name = author.user.name.to_string();
+
+    let CommandDataOptionValue::SubCommand(subcmds) = cmd.value.clone() else {
+        error!("command value was not a subcommand");
+        return Err(anyhow::anyhow!("command value was not a subcommand"));
+    };
+    let drink_name = subcmds[0].value.as_str();
 
     sqlx::query!(
         "INSERT INTO drunk (user_id, user_name) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING;",
@@ -67,12 +78,16 @@ pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::
         .await
         .with_context(|| "updating drunk")?;
 
-    let CommandDataOptionValue::SubCommand(subcmds) = cmd.value.clone() else {
-        error!("command value was not a subcommand");
-        return Err(anyhow::anyhow!("command value was not a subcommand"));
-    };
+    if let Some(name) = drink_name {
+        sqlx::query!(
+            "UPDATE drunk SET last_drink = ? WHERE user_id = ?;",
+            name,
+            author_id
+        )
+        .execute(&db)
+        .await
+        .with_context(|| "updating last_drink")?;
 
-    if let Some(name) = subcmds[0].value.as_str() {
         Ok(format!(
             "{} had a {} [`{}`]",
             author.mention(),

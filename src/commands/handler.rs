@@ -45,7 +45,7 @@ impl EventHandler for Handler {
 
         let content = res.unwrap_or_else(|e| {
             error!(error = %e, "Error handling command");
-            return "Ya broke it".to_string();
+            "Ya broke it".to_string()
         });
 
         let res = inter
@@ -148,7 +148,11 @@ async fn send_bigmoji(ctx: Ctx, message: &Message) -> anyhow::Result<()> {
     };
 
     for mat in re.captures_iter(&message.content) {
-        let term = mat.get(1).unwrap().as_str().to_lowercase();
+        let term = mat
+            .get(1)
+            .ok_or(anyhow::anyhow!("did not match"))?
+            .as_str()
+            .to_lowercase();
         let moji = get_bigmoji(db.clone(), term).await?;
 
         if let Some(moji) = moji {

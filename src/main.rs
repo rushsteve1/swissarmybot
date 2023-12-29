@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![forbid(future_incompatible)]
-#![forbid(clippy::unwrap_used)]
-#![warn(clippy::expect_used)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
 
 use std::{env, future::IntoFuture};
 
@@ -9,7 +9,7 @@ use anyhow::{bail, Context};
 use serenity::all::ApplicationId;
 use serenity::prelude::*;
 use sqlx::migrate::MigrateDatabase;
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, warn};
 
 mod commands;
 mod helpers;
