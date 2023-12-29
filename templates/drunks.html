@@ -10,21 +10,25 @@
     <table class="table table-hover">
         <thead>
             <th>Drinker</th>
+            <th>Last Drink At</th>
             <th>Beer</th>
             <th>Wine</th>
             <th>Shots</th>
             <th>Cocktails</th>
             <th>Derby</th>
+            <th><strong>Total</strong></th>
         </thead>
         <tbody>
             {% for drunk in drunks %}
             <tr>
                 <td nowrap>{{ drunk.user_name }}</td>
+                <td nowrap>{{ drunk.updated_at }}</td>
                 <td>{{ drunk.beer }}</td>
                 <td>{{ drunk.wine }}</td>
                 <td>{{ drunk.shots }}</td>
                 <td>{{ drunk.cocktails }}</td>
                 <td>{{ drunk.derby }}</td>
+                <td><strong>{{ drunk.beer + drunk.wine + drunk.shots + drunk.cocktails + drunk.derby }}</strong></td>
             </tr>
             {% endfor %}
         </tbody>

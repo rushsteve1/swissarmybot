@@ -1,12 +1,15 @@
+use anyhow::Context;
 use serenity::all::{
-    CommandDataOption, Context, CreateInteractionResponse, CreateInteractionResponseMessage,
-    EventHandler, Interaction, Message, Reaction, ReactionType, Ready,
+    CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, Interaction,
+    Message, Reaction, ReactionType, Ready,
 };
+use serenity::all::Context as Ctx;
 use serenity::async_trait;
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument};
 
 use super::definition::interactions_definition;
 use crate::commands::bigmoji::BigMoji;
+use crate::helpers::{get_bigmoji, get_cmd, get_inter};
 use crate::{DB_POOL, DOMAIN, PREFIX};
 
 const DOWN: &str = "⬇️";
@@ -18,7 +21,7 @@ pub struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     #[instrument]
-    async fn ready(&self, ctx: Context, _ready: Ready) {
+    async fn ready(&self, ctx: Ctx, _ready: Ready) {
         info!("SwissArmyBot is ready!");
 
         // Upserts the existing commands
@@ -26,58 +29,52 @@ impl EventHandler for Handler {
     }
 
     #[instrument]
-    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::Command(ref inter) = interaction {
-            let content = match inter.data.name.as_str() {
-                "quote" => handle_quote_command(&interaction).await,
-                "bigmoji" => handle_bigmoji_command(&interaction).await,
-                "drunk" => handle_drunk_command(&interaction).await,
-                _ => "Unknown Command".to_string(),
-            };
+    async fn interaction_create(&self, ctx: Ctx, interaction: Interaction) {
+        let Ok(inter) = get_inter(&interaction) else {
+            error!("slash command had no data");
+            return;
+        };
 
-            if let Err(e) = inter
-                .create_response(
-                    ctx,
-                    CreateInteractionResponse::Message(
-                        CreateInteractionResponseMessage::new().content(content),
-                    ),
-                )
-                .await
-            {
-                error!("Error responding to slash command {:?}", e)
-            }
-        } else {
-            warn!("Slash command interaction had no data {:?}", interaction);
+        let res = match inter.data.name.as_str() {
+            "quote" => handle_quote_command(&interaction).await,
+            "bigmoji" => handle_bigmoji_command(&interaction).await,
+            "drunk" => handle_drunk_command(&interaction).await,
+            _ => Err(anyhow::anyhow!("unknown command")),
+        };
+
+        let content = res.unwrap_or_else(|e| {
+            error!(error = %e, "Error handling command");
+            return "Ya broke it".to_string();
+        });
+
+        let res = inter
+            .create_response(
+                ctx,
+                CreateInteractionResponse::Message(
+                    CreateInteractionResponseMessage::new().content(content),
+                ),
+            )
+            .await;
+
+        if res.is_err() {
+            error!(error = ?res, "Error responding to interaction");
         }
     }
 
     #[instrument]
-    async fn message(&self, ctx: Context, message: Message) {
+    async fn message(&self, ctx: Ctx, message: Message) {
         // Don't bother with bot messages (including our own)
         if message.author.bot {
             return;
         }
 
-        let re = regex::Regex::new(r":(\S+):").unwrap();
-
-        for mat in re.captures_iter(&message.content) {
-            let term = mat.get(1).unwrap().as_str().to_lowercase();
-            let moji: Option<BigMoji> = sqlx::query_as("SELECT * FROM bigmoji WHERE name = ?;")
-                .bind(term)
-                .fetch_optional(&*DB_POOL)
-                .await
-                .expect("Error getting BigMoji in message");
-
-            if let Some(moji) = moji {
-                message
-                    .reply(&ctx.http, moji.text)
-                    .await
-                    .expect("Error responding to BigMoji");
-            }
-        }
+        send_bigmoji(ctx, &message).await.unwrap_or_else(|e| {
+            error!(error = %e, "could not send bigmoji")
+        });
     }
 
-    async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
+    #[instrument]
+    async fn reaction_add(&self, ctx: serenity::all::Context, reaction: Reaction) {
         let message = ctx
             .http
             .get_message(reaction.channel_id, reaction.message_id)
@@ -105,38 +102,55 @@ impl EventHandler for Handler {
     }
 }
 
-async fn handle_quote_command(interaction: &Interaction) -> String {
-    let cmd = get_cmd(interaction);
+#[instrument]
+async fn handle_quote_command(interaction: &Interaction) -> anyhow::Result<String> {
+    let cmd = get_cmd(interaction)?;
 
     match cmd.name.as_str() {
         "add" => super::quotes::add(interaction).await,
         "remove" => super::quotes::remove(interaction).await,
         "get" => super::quotes::get(interaction).await,
         "list" => super::quotes::list(interaction).await,
-        _ => "Unknown Option!".to_string(),
+        _ => Err(anyhow::anyhow!("unknown quote command")),
     }
 }
 
-async fn handle_bigmoji_command(interaction: &Interaction) -> String {
-    let cmd = get_cmd(interaction);
+#[instrument]
+async fn handle_bigmoji_command(interaction: &Interaction) -> anyhow::Result<String> {
+    let cmd = get_cmd(interaction)?;
 
     match cmd.name.as_str() {
         "add" => super::bigmoji::add(interaction).await,
         "remove" => super::bigmoji::remove(interaction).await,
         "get" => super::bigmoji::get(interaction).await,
-        "list" => format!("http://{}{}/bigmoji", *DOMAIN, *PREFIX),
-        _ => "Unknown Option!".to_string(),
+        "list" => Ok(format!("http://{}{}/bigmoji", *DOMAIN, *PREFIX)),
+        _ => Err(anyhow::anyhow!("unknown bigmoji command")),
     }
 }
 
-async fn handle_drunk_command(interaction: &Interaction) -> String {
+#[instrument]
+async fn handle_drunk_command(interaction: &Interaction) -> anyhow::Result<String> {
     super::drunk::update(interaction).await
 }
 
-pub fn get_cmd(interaction: &Interaction) -> &CommandDataOption {
-    if let Interaction::Command(inter) = interaction {
-        inter.data.options.first().unwrap()
-    } else {
-        unreachable!()
+#[instrument]
+async fn send_bigmoji(ctx: Ctx, message: &Message) -> anyhow::Result<()> {
+    let Ok(re) = regex::Regex::new(r":(\S+):") else {
+        error!("could not compile regex");
+        anyhow::bail!("could not compile regex")
+    };
+
+    for mat in re.captures_iter(&message.content) {
+        let term = mat.get(1).unwrap().as_str().to_lowercase();
+        let moji = get_bigmoji(term).await?;
+
+        if let Some(moji) = moji {
+            message
+                .reply(&ctx.http, moji.text)
+                .await
+                .with_context(|| "responding to BigMoji")?;
+        }
     }
+
+    Ok(())
 }

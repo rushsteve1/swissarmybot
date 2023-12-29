@@ -1,59 +1,71 @@
-use askama_gotham::respond;
-use gotham::handler::HandlerResult;
-use gotham::router::builder::*;
-use gotham::router::Router;
-use gotham::state::{FromState, State};
-use gotham_derive::StateData;
-use gotham_derive::StaticResponseExtender;
-use serde::Deserialize;
+use std::fmt;
+use std::str::FromStr;
+
+use axum::extract::Query;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::routing::get;
+use axum::Router;
+use serde::Deserializer;
+use serde::{de, Deserialize};
+use tracing::instrument;
 
 use super::templates::*;
 
-use crate::helpers::get_bigmoji;
+use crate::helpers::get_all_bigmoji;
 use crate::helpers::get_drunks;
 use crate::helpers::get_quotes;
 use crate::{GIT_VERSION, VERSION};
 
-// TODO better error handling
-
-#[derive(Deserialize, StateData, StaticResponseExtender)]
+#[derive(Debug, Deserialize)]
 struct QuotesQuery {
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     user: Option<i64>,
     from_date: Option<String>,
     to_date: Option<String>,
 }
 
+/// Serde deserialization decorator to map empty Strings to None,
+fn empty_string_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr,
+    T::Err: fmt::Display,
+{
+    let opt = Option::<String>::deserialize(de)?;
+    match opt.as_deref() {
+        None | Some("") => Ok(None),
+        Some(s) => FromStr::from_str(s).map_err(de::Error::custom).map(Some),
+    }
+}
+
+#[instrument]
 pub fn router() -> Router {
-    build_simple_router(|route| {
-        route.get("/").to(index);
-        route.get("/bigmoji").to_async(bigmoji);
-        route
-            .get("/quotes")
-            .with_query_string_extractor::<QuotesQuery>()
-            .to_async(quotes);
-        route.get("/drunks").to_async(drunks)
+    Router::new()
+        .route("/", get(index))
+        .route("/bigmoji", get(bigmoji))
+        .route("/drunks", get(drunks))
+        .route("/quotes", get(quotes))
+        .fallback(not_found)
+}
+
+#[instrument]
+async fn index() -> IndexTemplate {
+    IndexTemplate {
+        version: VERSION,
+        git_version: GIT_VERSION,
+    }
+}
+
+#[instrument]
+async fn bigmoji() -> Result<BigMojiTemplate, AppError> {
+    Ok(BigMojiTemplate {
+        bigmoji: get_all_bigmoji().await?,
     })
 }
 
-fn index(state: State) -> (State, IndexTemplate) {
-    let tpl = IndexTemplate {
-        version: VERSION,
-        git_version: GIT_VERSION,
-    };
-
-    (state, tpl)
-}
-
-async fn bigmoji(state: State) -> HandlerResult {
-    let bigmoji = get_bigmoji().await;
-
-    let tpl = BigMojiTemplate { bigmoji };
-
-    Ok((state, respond(&tpl)))
-}
-
-async fn quotes(mut state: State) -> HandlerResult {
-    let query = QuotesQuery::take_from(&mut state);
+#[instrument]
+async fn quotes(Query(query): Query<QuotesQuery>) -> Result<QuotesTemplate, AppError> {
     let from_date = query
         .from_date
         .clone()
@@ -61,61 +73,50 @@ async fn quotes(mut state: State) -> HandlerResult {
     let to_date = query.to_date.clone().unwrap_or_else(|| "3000-01-01".into());
     let user_id = query.user.unwrap_or(0);
 
-    let (quotes, selected, from_date, to_date) = get_quotes(from_date, to_date, user_id).await;
+    let (quotes, selected, from_date, to_date) = get_quotes(from_date, to_date, user_id).await?;
 
-    let tpl = QuotesTemplate {
+    Ok(QuotesTemplate {
         quotes,
         selected,
         from_date,
         to_date,
-    };
-
-    Ok((state, respond(&tpl)))
+    })
 }
 
-async fn drunks(state: State) -> HandlerResult {
-    let drunks = get_drunks().await;
-    let tpl = DrunksTemplate { drunks };
-
-    Ok((state, respond(&tpl)))
+#[instrument]
+async fn drunks() -> Result<DrunksTemplate, AppError> {
+    Ok(DrunksTemplate {
+        drunks: get_drunks().await?,
+    })
 }
 
-// --- Tests ---
+#[instrument]
+async fn not_found() -> impl IntoResponse {
+    (StatusCode::NOT_FOUND, "404 ye pagrod")
+}
 
-#[cfg(test)]
-mod tests {
-    use gotham::hyper::StatusCode;
-    use gotham::test::TestServer;
+// Make our own error that wraps `anyhow::Error`.
+// Taken from https://github.com/tokio-rs/axum/blob/main/examples/anyhow-error-response/src/main.rs
+struct AppError(anyhow::Error);
 
-    use crate::web::router;
-
-    #[test]
-    fn get_bigmoji() {
-        let test_server = TestServer::new(router()).unwrap();
-        let response = test_server
-            .client()
-            .get("http://localhost/bigmoji")
-            .perform()
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body = response.read_utf8_body().unwrap();
-        assert!(body.contains("BigMoji List"));
+// Tell axum how to convert `AppError` into a response.
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Something went wrong: {}", self.0),
+        )
+            .into_response()
     }
+}
 
-    #[test]
-    fn get_quotes() {
-        let test_server = TestServer::new(router()).unwrap();
-        let response = test_server
-            .client()
-            .get("http://localhost/quotes")
-            .perform()
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body = response.read_utf8_body().unwrap();
-        assert!(body.contains("Quotes List"));
+// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
+// `Result<_, AppError>`. That way you don't need to do that manually.
+impl<E> From<E> for AppError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
     }
 }

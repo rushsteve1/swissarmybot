@@ -1,20 +1,18 @@
 [package]
 name = "swiss_army_bot"
-version = "1.6.0-nein"
+version = "1.6.1-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-# TODO optimize feature flags
-
 [dependencies]
-askama_gotham = "^0.14"
+anyhow = "^1.0"
+askama_axum = "^0.4"
+axum = "0.7.2"
 chrono = "*"
 chrono-tz = "*"
 clokwerk = "^0.4"
-gotham = "^0.7"
-gotham_derive = "^0.7"
 lazy_static = "*"
 once_cell = "*"
 regex = "*"
@@ -22,12 +20,17 @@ scraper = "^0.18"
 serde = "*"
 serde_derive = "*"
 tracing = "*"
-tracing-subscriber = "^0.3"
+tracing-subscriber = "*"
 
 [dependencies.askama]
 version = "^0.12"
 default_features = false
-features = [ "with-gotham" ]
+features = [ "with-axum" ]
+
+[dependencies.reqwest]
+version = "*"
+default_features = false
+features = [ "rustls-tls", "gzip" ]
 
 [dependencies.serenity]
 version = "^0.12"
@@ -41,8 +44,3 @@ features = [ "chrono", "sqlite", "runtime-tokio-rustls" ]
 [dependencies.tokio]
 version = "^1.35"
 features = [ "full" ]
-
-[dependencies.reqwest]
-version = "*"
-default_features = false
-features = [ "rustls-tls", "gzip" ]

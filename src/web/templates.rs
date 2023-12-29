@@ -15,24 +15,12 @@ pub struct BigMojiTemplate {
 }
 
 #[derive(Template)]
-#[template(path = "bigmoji.txt")]
-pub struct BigMojiCSVTemplate {
-    pub bigmoji: Vec<BigMoji>,
-}
-
-#[derive(Template)]
 #[template(path = "quotes.html")]
 pub struct QuotesTemplate {
     pub quotes: Vec<Quote>,
     pub selected: i64,
     pub from_date: String,
     pub to_date: String,
-}
-
-#[derive(Template)]
-#[template(path = "quotes.txt")]
-pub struct QuotesCSVTemplate {
-    pub quotes: Vec<Quote>,
 }
 
 #[derive(Template)]

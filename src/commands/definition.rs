@@ -85,10 +85,11 @@ pub async fn interactions_definition(ctx: Context) -> Vec<Command> {
                 "list",
                 "List all the quotes by this user",
             )
-            .add_sub_option(
-                CreateCommandOption::new(CommandOptionType::User, "who", "Who is this quote by?")
-                    .required(true),
-            ),
+            .add_sub_option(CreateCommandOption::new(
+                CommandOptionType::User,
+                "who",
+                "Who is this quote by?",
+            )),
         );
 
     let bigmoji_cmd = CreateCommand::new("bigmoji")
@@ -152,33 +153,36 @@ pub async fn interactions_definition(ctx: Context) -> Vec<Command> {
             "List all the BigMoji",
         ));
 
+    let drink_name_subcmd =
+        CreateCommandOption::new(CommandOptionType::String, "name", "Be more specific");
+
     let drunk_cmd = CreateCommand::new("drunk")
         .description("Record your tipsy times")
-        .add_option(CreateCommandOption::new(
-            CommandOptionType::SubCommand,
-            "beer",
-            "A pint of Guinness",
-        ))
-        .add_option(CreateCommandOption::new(
-            CommandOptionType::SubCommand,
-            "wine",
-            "Look at you being fancy",
-        ))
-        .add_option(CreateCommandOption::new(
-            CommandOptionType::SubCommand,
-            "shot",
-            "Hell yeah",
-        ))
+        .add_option(
+            CreateCommandOption::new(CommandOptionType::SubCommand, "beer", "A pint of Guinness")
+                .add_sub_option(drink_name_subcmd.clone()),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::SubCommand,
+                "wine",
+                "Look at you being fancy",
+            )
+            .add_sub_option(drink_name_subcmd.clone()),
+        )
+        .add_option(
+            CreateCommandOption::new(CommandOptionType::SubCommand, "shot", "Hell yeah")
+                .add_sub_option(drink_name_subcmd.clone()),
+        )
         .add_option(CreateCommandOption::new(
             CommandOptionType::SubCommand,
             "cocktail",
             "Hangover-proof recipe: Liquid IV and Vodka",
         ))
-        .add_option(CreateCommandOption::new(
-            CommandOptionType::SubCommand,
-            "derby",
-            "🎺 🏇",
-        ));
+        .add_option(
+            CreateCommandOption::new(CommandOptionType::SubCommand, "derby", "🎺 🏇")
+                .add_sub_option(drink_name_subcmd),
+        );
 
     Command::set_global_commands(&ctx.http, vec![quote_cmd, bigmoji_cmd, drunk_cmd])
         .await

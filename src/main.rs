@@ -1,4 +1,9 @@
-use std::env;
+#![forbid(unsafe_code)]
+#![forbid(future_incompatible)]
+#![forbid(clippy::unwrap_used)]
+#![warn(clippy::expect_used)]
+
+use std::{env, future::IntoFuture};
 use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
@@ -7,7 +12,7 @@ use serenity::http::Http;
 use serenity::model::id::ChannelId;
 use serenity::prelude::*;
 use sqlx::migrate::MigrateDatabase;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, info, instrument, error};
 
 mod commands;
 mod helpers;
@@ -16,6 +21,8 @@ mod web;
 
 use commands::Handler;
 use jobs::setup_jobs;
+
+use crate::web::router;
 
 // Get version and git info from environment variables
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
@@ -69,10 +76,9 @@ pub static HTTP: OnceCell<Arc<Http>> = OnceCell::new();
 
 #[tokio::main]
 #[instrument]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     // Setup tracing
-    let subscriber = tracing_subscriber::FmtSubscriber::new();
-    tracing::subscriber::set_global_default(subscriber).expect("Subscriber failed to set");
+    tracing_subscriber::fmt::init();
 
     info!("Starting up SwissArmyBot {}...", VERSION);
 
@@ -81,12 +87,10 @@ async fn main() {
     if let Err(ref e) = path_e {
         match e.kind() {
             std::io::ErrorKind::NotFound => {
-                sqlx::Sqlite::create_database(&DB_PATH)
-                    .await
-                    .expect("Error creating database");
+                sqlx::Sqlite::create_database(&DB_PATH).await?;
             }
             _ => {
-                path_e.expect("DATABASE_PATH is not a valid path");
+                path_e?;
             }
         }
     }
@@ -95,10 +99,7 @@ async fn main() {
     info!("Using database file {}", *DB_PATH);
 
     // Apply migrations
-    sqlx::migrate!("./migrations")
-        .run(&*DB_POOL)
-        .await
-        .expect("Failed to migrate database");
+    sqlx::migrate!("./migrations").run(&*DB_POOL).await?;
 
     info!("Database migration completed");
 
@@ -106,17 +107,19 @@ async fn main() {
     let mut client = Client::builder(TOKEN.clone(), GatewayIntents::default())
         .event_handler(Handler)
         .application_id(*APP_ID)
-        .await
-        .expect("Error creating client");
+        .await?;
 
-    HTTP.set(client.http.clone()).unwrap();
+    if HTTP.set(client.http.clone()).is_err() {
+        error!("could not set ")
+    }
 
     let client_fut = client.start();
 
-    // Build the Gotham server
+    // Build the Axum server
     let addr = format!("0.0.0.0:{}", *PORT);
     info!("Binding to address `{}`", addr);
-    let gotham_fut = gotham::plain::init_server(addr, web::router());
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let axum_fut = axum::serve(listener, router()).into_future();
 
     let mut scheduler = setup_jobs();
     let job_fut = tokio::spawn(async move {
@@ -130,18 +133,10 @@ async fn main() {
     // them should ever exit, so we wait for them and print an error if they do.
     debug!("Starting event loop...");
     tokio::select!(
-        e = client_fut => {
-            error!("Serenity exited with {:?}", e.unwrap_err());
-        }
-        e = gotham_fut => {
-            error!("Gotham exited with {:?}", e.unwrap_err());
-        }
-        e = job_fut => {
-            error!("Clokwerk exited with {:?}", e.unwrap_err());
-        }
+        e = client_fut => e?,
+        e = axum_fut => e?,
+        e = job_fut => e?,
     );
 
-    // If it gets to this point then it has exited abnormally
-    error!("SwissArmyBot has exited, whoops!");
-    std::process::exit(1);
+    anyhow::bail!("SwissArmyBot exited!")
 }

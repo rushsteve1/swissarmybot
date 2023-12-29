@@ -1,9 +1,9 @@
+use anyhow::{anyhow, Context};
 use chrono::NaiveDateTime;
 use serenity::all::Interaction;
 use tracing::instrument;
 
-use super::get_cmd;
-use crate::DB_POOL;
+use crate::{helpers::get_cmd, DB_POOL};
 
 #[derive(sqlx::FromRow)]
 pub struct BigMoji {
@@ -13,16 +13,20 @@ pub struct BigMoji {
 }
 
 #[instrument]
-pub async fn add(interaction: &Interaction) -> String {
-    let cmd = get_cmd(interaction);
+pub async fn add(interaction: &Interaction) -> anyhow::Result<String> {
+    let cmd = get_cmd(interaction)?;
 
     let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
 
-    let text = cmd.value.as_str().unwrap().to_string();
+    let text = cmd
+        .value
+        .as_str()
+        .ok_or(anyhow!("bigmoji text"))?
+        .to_string();
 
     if name.len() < 3 {
-        return "BigMoji name too short".to_string();
+        return Ok("BigMoji name too short".to_string());
     }
 
     // Prevents recursive BigMoji
@@ -35,13 +39,13 @@ pub async fn add(interaction: &Interaction) -> String {
     )
     .execute(&*DB_POOL)
     .await
-    .expect("Error inserting bigmoji");
+    .with_context(|| "inserting bigmoji")?;
 
-    format!("BigMoji `:{}:` added", name)
+    Ok(format!("BigMoji `:{}:` added", name))
 }
 
-pub async fn remove(interaction: &Interaction) -> String {
-    let cmd = get_cmd(interaction);
+pub async fn remove(interaction: &Interaction) -> anyhow::Result<String> {
+    let cmd = get_cmd(interaction)?;
 
     let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
@@ -49,13 +53,13 @@ pub async fn remove(interaction: &Interaction) -> String {
     sqlx::query!("DELETE FROM bigmoji WHERE name = ?;", name)
         .execute(&*DB_POOL)
         .await
-        .expect("Error deleting bigmoji");
+        .with_context(|| "deleting bigmoji")?;
 
-    format!("Deleted BigMoji `:{}:`", name)
+    Ok(format!("Deleted BigMoji `:{}:`", name))
 }
 
-pub async fn get(interaction: &Interaction) -> String {
-    let cmd = get_cmd(interaction);
+pub async fn get(interaction: &Interaction) -> anyhow::Result<String> {
+    let cmd = get_cmd(interaction)?;
 
     let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
@@ -64,11 +68,11 @@ pub async fn get(interaction: &Interaction) -> String {
         sqlx::query_as!(BigMoji, "SELECT * FROM bigmoji WHERE name = ?;", name)
             .fetch_optional(&*DB_POOL)
             .await
-            .expect("Error getting bigmoji");
+            .with_context(|| "getting bigmoji")?;
 
     if let Some(moji) = moji {
-        moji.text
+        Ok(moji.text)
     } else {
-        format!("BigMoji `:{}:` does not exist", name)
+        Ok(format!("BigMoji `:{}:` does not exist", name))
     }
 }

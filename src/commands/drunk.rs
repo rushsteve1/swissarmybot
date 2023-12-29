@@ -1,9 +1,11 @@
+use anyhow::Context;
 use chrono::NaiveDateTime;
-use serenity::all::{Interaction, Mentionable};
-use tracing::instrument;
+use serenity::all::{CommandDataOptionValue, Interaction, Mentionable};
+use tracing::{error, instrument};
 
-use super::get_cmd;
-use crate::DB_POOL;
+use crate::{
+    helpers::{get_cmd, get_inter}, DB_POOL}
+;
 
 #[derive(sqlx::FromRow)]
 pub struct Drunk {
@@ -19,54 +21,67 @@ pub struct Drunk {
 }
 
 #[instrument]
-pub async fn update(interaction: &Interaction) -> String {
-    let cmd = get_cmd(interaction);
+pub async fn update(interaction: &Interaction) -> anyhow::Result<String> {
+    let inter = get_inter(interaction)?;
+    let cmd = get_cmd(interaction)?;
 
-    if let Interaction::Command(inter) = interaction {
-        let author = inter.member.as_ref().unwrap();
+    let author = inter.member.as_ref().unwrap();
+    let author_id = author.user.id.to_string();
+    let author_name = author.user.name.to_string();
 
-        let author_id = author.user.id.to_string();
-        let author_name = author.user.name.to_string();
+    sqlx::query!(
+        "INSERT INTO drunk (user_id, user_name) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING;",
+        author_id,
+        author_name
+    )
+    .execute(&*DB_POOL)
+    .await
+    .with_context(|| "inserting drunk")?;
 
-        sqlx::query!(
-            "INSERT INTO drunk (user_id, user_name) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING;",
-            author_id,
-            author_name
-        )
-        .execute(&*DB_POOL)
-        .await
-        .expect("Error inserting drunk");
-
-        // Repetitive, but that's the price of compile-time SQL validation
-        match cmd.name.as_str() {
+    // Repetitive, but that's the price of compile-time SQL validation
+    match cmd.name.as_str() {
             "beer" => sqlx::query!(
-                "UPDATE drunk SET beer = beer + 1 WHERE user_id = ?;",
+                "UPDATE drunk SET beer = beer + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
                 author_id
             ),
             "wine" => sqlx::query!(
-                "UPDATE drunk SET wine = wine + 1 WHERE user_id = ?;",
+                "UPDATE drunk SET wine = wine + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
                 author_id
             ),
             "shot" => sqlx::query!(
-                "UPDATE drunk SET shots = shots + 1 WHERE user_id = ?;",
+                "UPDATE drunk SET shots = shots + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
                 author_id
             ),
             "cocktail" => sqlx::query!(
-                "UPDATE drunk SET cocktails = cocktails + 1 WHERE user_id = ?;",
+                "UPDATE drunk SET cocktails = cocktails + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
                 author_id
             ),
             "derby" => sqlx::query!(
-                "UPDATE drunk SET derby = derby + 1 WHERE user_id = ?;",
+                "UPDATE drunk SET derby = derby + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
                 author_id
             ),
-            _ => unreachable!(),
+            _ => {
+                error!("unknown drink type");
+                return Err(anyhow::anyhow!("unknown drink type"));
+            },
         }
         .execute(&*DB_POOL)
         .await
-        .expect("Error updating drunk");
+        .with_context(|| "updating drunk")?;
 
-        format!("{} had a {}", author.mention(), cmd.name.as_str())
+    let CommandDataOptionValue::SubCommand(subcmds) = cmd.value.clone() else {
+        error!("command value was not a subcommand");
+        return Err(anyhow::anyhow!("command value was not a subcommand"));
+    };
+
+    if let Some(name) = subcmds[0].value.as_str() {
+        Ok(format!(
+            "{} had a {} [`{}`]",
+            author.mention(),
+            cmd.name.as_str(),
+            name
+        ))
     } else {
-        unreachable!()
+        Ok(format!("{} had a {}", author.mention(), cmd.name.as_str()))
     }
 }
