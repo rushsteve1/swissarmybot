@@ -1,11 +1,12 @@
+use anyhow::anyhow;
 use anyhow::Context;
 use chrono::NaiveDateTime;
-use serenity::model::application::Interaction;
-use serenity::model::prelude::*;
+use serenity::all::UserId;
+use serenity::all::{Context as Ctx, Interaction, Mentionable};
 use tracing::instrument;
-use anyhow::anyhow;
 
-use crate::{DB_POOL, DOMAIN, HTTP, PREFIX, helpers::{get_inter, get_cmd}};
+use crate::helpers::domain;
+use crate::helpers::{get_cmd, get_db, get_inter};
 
 #[derive(sqlx::FromRow)]
 pub struct Quote {
@@ -19,15 +20,22 @@ pub struct Quote {
 }
 
 #[instrument]
-pub async fn add(interaction: &Interaction) -> anyhow::Result<String> {
+pub async fn add(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
+    let db = get_db(ctx.clone()).await?;
     let cmd = get_cmd(interaction)?;
 
-    let user_id = cmd.value.as_user_id().unwrap();
-    let user = user_id.to_user(HTTP.get().unwrap()).await.unwrap();
-    let text = cmd.value.as_str().unwrap();
+    let Some(user_id) = cmd.value.as_user_id() else {
+        anyhow::bail!("no user id");
+    };
+    let user = user_id.to_user(ctx).await?;
+    let Some(text) = cmd.value.as_str() else {
+        anyhow::bail!("no quote text")
+    };
 
     let inter = get_inter(interaction)?;
-    let author = inter.member.as_ref().unwrap();
+    let Some(author) = inter.member.as_ref() else {
+        anyhow::bail!("no quote author")
+    };
 
     let id = user_id.to_string();
     let name = &user.name;
@@ -37,19 +45,20 @@ pub async fn add(interaction: &Interaction) -> anyhow::Result<String> {
     sqlx::query!("INSERT INTO quotes (text, user_id, user_name, author_id, author_name) VALUES (?, ?, ?, ?, ?);",
                         text,
                         id, name, author_id, author_name)
-                        .execute(&*DB_POOL)
+                        .execute(&db)
                         .await
                         .with_context(|| "error inserting quote")?;
 
     Ok(format!("Quote added for {}\n>>> {}", user, text))
 }
 
-pub async fn remove(interaction: &Interaction) -> anyhow::Result<String> {
+pub async fn remove(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
+    let db = get_db(ctx).await?;
     let cmd = get_cmd(interaction)?;
     let id = cmd.value.as_i64().ok_or(anyhow::anyhow!("quote get id"))?;
 
     let row = sqlx::query_scalar!("DELETE FROM quotes WHERE id = ? RETURNING user_id;", id)
-        .fetch_optional(&*DB_POOL)
+        .fetch_optional(&db)
         .await
         .with_context(|| "error deleting quote")?;
 
@@ -63,12 +72,13 @@ pub async fn remove(interaction: &Interaction) -> anyhow::Result<String> {
 }
 
 #[instrument]
-pub async fn get(interaction: &Interaction) -> anyhow::Result<String> {
+pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
+    let db = get_db(ctx).await?;
     let cmd = get_cmd(interaction)?;
     let id = cmd.value.as_i64().ok_or(anyhow!("quote get id"))?;
 
     let quote: Option<Quote> = sqlx::query_as!(Quote, "SELECT * FROM quotes WHERE id = ?;", id)
-        .fetch_optional(&*DB_POOL)
+        .fetch_optional(&db)
         .await
         .with_context(|| "error getting quote")?;
 
@@ -90,8 +100,8 @@ pub async fn list(interaction: &Interaction) -> anyhow::Result<String> {
     let cmd = get_cmd(interaction)?;
 
     if let Some(user_id) = cmd.value.as_user_id() {
-        Ok(format!("http://{}{}/quotes?user={}", *DOMAIN, *PREFIX, user_id))
+        Ok(format!("http://{}/quotes?user={}", domain(), user_id))
     } else {
-        Ok(format!("http://{}{}/quotes", *DOMAIN, *PREFIX))
+        Ok(format!("http://{}/quotes", domain()))
     }
 }

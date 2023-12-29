@@ -2382,8 +2382,6 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "clokwerk",
- "lazy_static",
- "once_cell",
  "regex",
  "reqwest",
  "scraper",

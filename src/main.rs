@@ -4,15 +4,12 @@
 #![warn(clippy::expect_used)]
 
 use std::{env, future::IntoFuture};
-use std::sync::Arc;
 
-use once_cell::sync::OnceCell;
+use anyhow::{bail, Context};
 use serenity::all::ApplicationId;
-use serenity::http::Http;
-use serenity::model::id::ChannelId;
 use serenity::prelude::*;
 use sqlx::migrate::MigrateDatabase;
-use tracing::{debug, info, instrument, error};
+use tracing::{debug, info, instrument};
 
 mod commands;
 mod helpers;
@@ -24,55 +21,9 @@ use jobs::setup_jobs;
 
 use crate::web::router;
 
-// Get version and git info from environment variables
+// Get version and git info from environment variables during compile
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
 pub const GIT_VERSION: Option<&'static str> = std::option_env!("GIT_VERSION");
-
-// TODO clean up this disaster
-lazy_static::lazy_static! {
-    // Get configuration from environment variables
-    // These make working with SAB in a docker container much easier
-    pub static ref TOKEN: String  = env::var("DISCORD_TOKEN").expect("Missing DISCORD_TOKEN env variable");
-    pub static ref PORT: u16 = env::var("PORT")
-        .unwrap_or_else(|_| "8080".to_string())
-        .parse()
-        .expect("PORT is not a number");
-    pub static ref APP_ID: ApplicationId = env::var("APPLICATION_ID")
-        .expect("Missing APPLICATION_ID env variable")
-        .parse()
-        .expect("APPLICATION_ID is not a number");
-    pub static ref DB_PATH: String = env::var("DATABASE_URL").unwrap_or_else(|_| {
-        env::temp_dir()
-            .join("swissarmy.sqlite")
-            .into_os_string()
-            .into_string()
-            .unwrap()
-    });
-
-    pub static ref DOMAIN: String = env::var("WEB_DOMAIN").unwrap_or_else(|_| "0.0.0.0".to_string());
-    pub static ref PREFIX: String = env::var("ROUTE_PREFIX").unwrap_or_default();
-
-    pub static ref QOTD_CHANNELS: Vec<ChannelId> =
-        env::var("QOTD_CHANNELS")
-            .unwrap_or_default()
-            .split(',')
-            .map(|s| s.trim().parse::<u64>().unwrap().into())
-            .collect();
-    pub static ref STONKS_CHANNELS: Vec<ChannelId> =
-        env::var("STONKS_CHANNELS")
-            .unwrap_or_default()
-            .split(',')
-            .map(|s| s.trim().parse::<u64>().unwrap().into())
-            .collect();
-
-    // Build and connect to the database
-    pub static ref DB_POOL: sqlx::SqlitePool = sqlx::sqlite::SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect_lazy(&DB_PATH)
-        .expect("Error connecting to database");
-}
-
-pub static HTTP: OnceCell<Arc<Http>> = OnceCell::new();
 
 #[tokio::main]
 #[instrument]
@@ -82,12 +33,33 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting up SwissArmyBot {}...", VERSION);
 
+    // Get configuration from environment variables
+    // These make working with SAB in a docker container much easier
+    let Ok(token) = env::var("DISCORD_TOKEN") else {
+        bail!("Missing DISCORD_TOKEN env variable");
+    };
+    let Ok(port) = env::var("PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse::<u16>()
+    else {
+        bail!("PORT is not a number");
+    };
+    let Ok(app_id) = env::var("APPLICATION_ID") else {
+        bail!("APPLICATION_ID is not set");
+    };
+    let Ok(app_id) = app_id.parse::<ApplicationId>() else {
+        bail!("APPLICATION_ID is invalid");
+    };
+
+    // Build and connect to the database
+    let db_path = env::var("DATABASE_URL").unwrap_or_else(|_| "./swissarmy.sqlite".to_string());
+
     // Check the database path properly, creating the database if needed
-    let path_e = std::fs::canonicalize(&*DB_PATH);
+    let path_e = std::fs::canonicalize(&db_path);
     if let Err(ref e) = path_e {
         match e.kind() {
             std::io::ErrorKind::NotFound => {
-                sqlx::Sqlite::create_database(&DB_PATH).await?;
+                sqlx::Sqlite::create_database(&db_path).await?;
             }
             _ => {
                 path_e?;
@@ -95,48 +67,60 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    debug!("Configuration loaded from env variables");
-    info!("Using database file {}", *DB_PATH);
+    info!("Using database file {}", db_path);
+
+    let Ok(db_pool) = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect_lazy(&db_path)
+    else {
+        bail!("Error connecting to database");
+    };
 
     // Apply migrations
-    sqlx::migrate!("./migrations").run(&*DB_POOL).await?;
+    sqlx::migrate!("./migrations").run(&db_pool).await?;
 
     info!("Database migration completed");
 
     // Build the Serenity client
-    let mut client = Client::builder(TOKEN.clone(), GatewayIntents::default())
+    let mut client = Client::builder(token.clone(), GatewayIntents::default())
+        .type_map_insert::<DB>(db_pool.clone())
         .event_handler(Handler)
-        .application_id(*APP_ID)
+        .application_id(app_id)
         .await?;
 
-    if HTTP.set(client.http.clone()).is_err() {
-        error!("could not set ")
-    }
-
-    let client_fut = client.start();
-
     // Build the Axum server
-    let addr = format!("0.0.0.0:{}", *PORT);
+    let addr = format!("0.0.0.0:{}", port);
     info!("Binding to address `{}`", addr);
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    let axum_fut = axum::serve(listener, router()).into_future();
+    let axum_fut = axum::serve(listener, router(db_pool.clone())).into_future();
 
-    let mut scheduler = setup_jobs();
+    // Setup the cron jobs to check every 60 seconds
+    let mut scheduler = setup_jobs(db_pool, client.http.clone());
     let job_fut = tokio::spawn(async move {
         loop {
             scheduler.run_pending().await;
-            tokio::time::sleep(std::time::Duration::from_millis(10_000)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         }
     });
 
-    // We're running both Serenity and Gotham in Tokio workers, and neither of
-    // them should ever exit, so we wait for them and print an error if they do.
+    // Start the client but don't await it yet since we need to select all the futures together
+    let serenity_fut = client.start();
+
+    // We're running everything in Tokio workers, and none of them should ever exit,
+    // so we wait for them and print an error if they do.
     debug!("Starting event loop...");
     tokio::select!(
-        e = client_fut => e?,
-        e = axum_fut => e?,
-        e = job_fut => e?,
+        e = serenity_fut => e.with_context(|| "Serenity exited!")?,
+        e = axum_fut => e.with_context(|| "Axum exited!")?,
+        e = job_fut => e.with_context(|| "Jobs exited!")?,
     );
 
+    // Shouldn't be possible, but just in case
     anyhow::bail!("SwissArmyBot exited!")
+}
+
+pub struct DB;
+
+impl TypeMapKey for DB {
+    type Value = sqlx::SqlitePool;
 }

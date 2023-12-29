@@ -3,9 +3,7 @@ use chrono::NaiveDateTime;
 use serenity::all::{CommandDataOptionValue, Interaction, Mentionable};
 use tracing::{error, instrument};
 
-use crate::{
-    helpers::{get_cmd, get_inter}, DB_POOL}
-;
+use crate::helpers::{get_cmd, get_inter};
 
 #[derive(sqlx::FromRow)]
 pub struct Drunk {
@@ -21,7 +19,7 @@ pub struct Drunk {
 }
 
 #[instrument]
-pub async fn update(interaction: &Interaction) -> anyhow::Result<String> {
+pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
     let inter = get_inter(interaction)?;
     let cmd = get_cmd(interaction)?;
 
@@ -34,7 +32,7 @@ pub async fn update(interaction: &Interaction) -> anyhow::Result<String> {
         author_id,
         author_name
     )
-    .execute(&*DB_POOL)
+    .execute(&db)
     .await
     .with_context(|| "inserting drunk")?;
 
@@ -65,7 +63,7 @@ pub async fn update(interaction: &Interaction) -> anyhow::Result<String> {
                 return Err(anyhow::anyhow!("unknown drink type"));
             },
         }
-        .execute(&*DB_POOL)
+        .execute(&db)
         .await
         .with_context(|| "updating drunk")?;
 

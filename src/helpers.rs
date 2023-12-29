@@ -1,15 +1,16 @@
+use std::{env, sync::Arc};
+
 use anyhow::Context;
 use scraper::{Html, Selector};
-use serenity::{
-    all::{ChannelId, CommandDataOption, CommandInteraction, Interaction, Mentionable, Message},
-    builder::CreateMessage,
+use serenity::all::Context as Ctx;
+use serenity::all::{
+    ChannelId, CommandDataOption, CommandInteraction, CreateMessage, Http, Interaction,
+    Mentionable, Message,
 };
+use sqlx::SqlitePool;
 use tracing::{instrument, warn};
 
-use crate::{
-    commands::{BigMoji, Drunk, Quote},
-    DB_POOL, HTTP,
-};
+use crate::commands::{BigMoji, Drunk, Quote};
 
 const GOOD_STONKS: &str = "📈";
 const BAD_STONKS: &str = "📉";
@@ -17,23 +18,24 @@ const STONKS_URL: &str = "https://finance.yahoo.com";
 const STONKS_SEL: &str = "#marketsummary-itm-2 > h3:nth-child(1) > div:nth-child(4) > fin-streamer:nth-child(1) > span:nth-child(1)";
 
 #[instrument]
-pub async fn get_bigmoji(name: String) -> anyhow::Result<Option<BigMoji>> {
+pub async fn get_bigmoji(db: SqlitePool, name: String) -> anyhow::Result<Option<BigMoji>> {
     sqlx::query_as!(BigMoji, "SELECT * FROM bigmoji WHERE name = ?;", name)
-        .fetch_optional(&*DB_POOL)
+        .fetch_optional(&db)
         .await
         .with_context(|| "getting BigMoji in message")
 }
 
 #[instrument]
-pub async fn get_all_bigmoji() -> anyhow::Result<Vec<BigMoji>> {
+pub async fn get_all_bigmoji(db: SqlitePool) -> anyhow::Result<Vec<BigMoji>> {
     sqlx::query_as!(BigMoji, "SELECT * FROM bigmoji;")
-        .fetch_all(&*DB_POOL)
+        .fetch_all(&db)
         .await
         .with_context(|| "get bigmoji")
 }
 
 #[instrument]
 pub async fn get_quotes(
+    db: SqlitePool,
     from_date: String,
     to_date: String,
     user_id: i64,
@@ -46,7 +48,7 @@ pub async fn get_quotes(
             from_date,
             to_date
         )
-        .fetch_all(&*DB_POOL)
+        .fetch_all(&db)
         .await
     } else {
         sqlx::query_as!(
@@ -55,7 +57,7 @@ pub async fn get_quotes(
             from_date,
             to_date
         )
-        .fetch_all(&*DB_POOL)
+        .fetch_all(&db)
         .await
     }
     .with_context(|| "getting quotes")?;
@@ -64,27 +66,32 @@ pub async fn get_quotes(
 }
 
 #[instrument]
-pub async fn get_drunks() -> anyhow::Result<Vec<Drunk>> {
+pub async fn get_drunks(db: SqlitePool) -> anyhow::Result<Vec<Drunk>> {
     sqlx::query_as!(
         Drunk,
         "SELECT * FROM drunk ORDER BY (beer + wine + shots + cocktails + derby) DESC;"
     )
-    .fetch_all(&*DB_POOL)
+    .fetch_all(&db)
     .await
     .with_context(|| "getting drunks")
 }
 
 #[instrument]
-pub async fn get_random_quote() -> anyhow::Result<Quote> {
+pub async fn get_random_quote(db: SqlitePool) -> anyhow::Result<Quote> {
     sqlx::query_as!(Quote, "SELECT * FROM quotes ORDER BY RANDOM() LIMIT 1;")
-        .fetch_one(&*DB_POOL)
+        .fetch_one(&db)
         .await
         .with_context(|| "getting quote")
 }
 
 #[instrument]
-pub async fn post_random_to_channel(chan: ChannelId, body: String) -> anyhow::Result<Message> {
-    let quote = get_random_quote().await?;
+pub async fn post_random_to_channel(
+    db: SqlitePool,
+    http: Arc<Http>,
+    chan: ChannelId,
+    body: String,
+) -> anyhow::Result<Message> {
+    let quote = get_random_quote(db).await?;
     let user_id = serenity::model::id::UserId::new(quote.user_id as u64);
     let author_id = serenity::model::id::UserId::new(quote.author_id as u64);
 
@@ -98,14 +105,13 @@ pub async fn post_random_to_channel(chan: ChannelId, body: String) -> anyhow::Re
         quote.text
     );
 
-    let http = HTTP.get().ok_or(anyhow::anyhow!("could not get HTTP"))?;
     chan.send_message(http, CreateMessage::new().content(txt))
         .await
         .with_context(|| "sending random quote")
 }
 
 #[instrument]
-pub async fn post_stonks_to_channel(chan: ChannelId) -> anyhow::Result<Message> {
+pub async fn post_stonks_to_channel(http: Arc<Http>, chan: ChannelId) -> anyhow::Result<Message> {
     let txt = {
         let body = reqwest::get(STONKS_URL).await?.text().await?;
         let document = Html::parse_document(&body);
@@ -126,13 +132,11 @@ pub async fn post_stonks_to_channel(chan: ChannelId) -> anyhow::Result<Message> 
         .ok_or(anyhow::anyhow!("failed to find element"))?
     };
 
-    let http = HTTP.get().ok_or(anyhow::anyhow!("could not get HTTP"))?;
     chan.send_message(http, CreateMessage::new().content(txt))
         .await
         .with_context(|| "sending stonks message")
 }
 
-#[instrument]
 pub fn get_inter(interaction: &Interaction) -> anyhow::Result<&CommandInteraction> {
     if let Interaction::Command(inter) = interaction {
         Ok(inter)
@@ -142,11 +146,23 @@ pub fn get_inter(interaction: &Interaction) -> anyhow::Result<&CommandInteractio
     }
 }
 
-#[instrument]
 pub fn get_cmd(interaction: &Interaction) -> anyhow::Result<&CommandDataOption> {
     get_inter(interaction)?
         .data
         .options
         .first()
         .ok_or(anyhow::anyhow!("interaction did not have command"))
+}
+
+pub async fn get_db(ctx: Ctx) -> anyhow::Result<SqlitePool> {
+    let lock = ctx.data.read().await;
+    let Some(db) = lock.get::<crate::DB>() else {
+        anyhow::bail!("could not get database");
+    };
+    Ok(db.clone())
+}
+
+#[inline]
+pub fn domain() -> String {
+    env::var("WEB_DOMAIN").unwrap_or_else(|_| "0.0.0.0".to_string())
 }

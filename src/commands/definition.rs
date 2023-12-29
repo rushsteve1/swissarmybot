@@ -1,22 +1,23 @@
+use anyhow::Context;
 use serenity::all::{
-    Command, CommandOptionType, Context, CreateCommand, CreateCommandOption, GuildId,
+    Command, CommandOptionType, Context as Ctx, CreateCommand, CreateCommandOption, GuildId,
 };
 use tracing::{instrument, warn};
 
 #[instrument]
-pub async fn _clear_definitions(ctx: &Context) {
+pub async fn _clear_definitions(ctx: Ctx) {
     warn!("Clearing slash command definitions");
-    let commands = Command::get_global_commands(&ctx.http).await.unwrap();
+    let commands = Command::get_global_commands(ctx.clone()).await.unwrap();
 
     for command in commands {
-        Command::delete_global_command(&ctx.http, command.id)
+        Command::delete_global_command(ctx.clone(), command.id)
             .await
             .unwrap();
     }
 }
 
 #[instrument]
-pub async fn _clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
+pub async fn _clear_definitions_for_guild(ctx: Ctx, guild_id: GuildId) {
     warn!("Clearing slash command definitions for guild {}", guild_id);
     let commands = ctx.http.get_guild_commands(guild_id).await.unwrap();
 
@@ -31,7 +32,7 @@ pub async fn _clear_definitions_for_guild(ctx: &Context, guild_id: GuildId) {
 /// Builds the definition of the slash command "interactions" and sends it to
 /// Discord where it can will be displayed
 #[instrument]
-pub async fn interactions_definition(ctx: Context) -> Vec<Command> {
+pub async fn interactions_definition(ctx: Ctx) -> anyhow::Result<Vec<Command>> {
     let quote_cmd = CreateCommand::new("quote")
         .description("Manage peoples' quotes")
         .add_option(
@@ -184,7 +185,7 @@ pub async fn interactions_definition(ctx: Context) -> Vec<Command> {
                 .add_sub_option(drink_name_subcmd),
         );
 
-    Command::set_global_commands(&ctx.http, vec![quote_cmd, bigmoji_cmd, drunk_cmd])
+    Command::set_global_commands(ctx, vec![quote_cmd, bigmoji_cmd, drunk_cmd])
         .await
-        .expect("Error sending interaction data to Discord")
+        .with_context(|| "Error sending interaction data to Discord")
 }

@@ -1,9 +1,10 @@
 use anyhow::{anyhow, Context};
 use chrono::NaiveDateTime;
 use serenity::all::Interaction;
+use sqlx::SqlitePool;
 use tracing::instrument;
 
-use crate::{helpers::get_cmd, DB_POOL};
+use crate::helpers::get_cmd;
 
 #[derive(sqlx::FromRow)]
 pub struct BigMoji {
@@ -13,7 +14,7 @@ pub struct BigMoji {
 }
 
 #[instrument]
-pub async fn add(interaction: &Interaction) -> anyhow::Result<String> {
+pub async fn add(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
     let cmd = get_cmd(interaction)?;
 
     let mut name = cmd.name.replace(':', "").to_lowercase();
@@ -37,28 +38,28 @@ pub async fn add(interaction: &Interaction) -> anyhow::Result<String> {
         name,
         text
     )
-    .execute(&*DB_POOL)
+    .execute(&db)
     .await
     .with_context(|| "inserting bigmoji")?;
 
     Ok(format!("BigMoji `:{}:` added", name))
 }
 
-pub async fn remove(interaction: &Interaction) -> anyhow::Result<String> {
+pub async fn remove(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
     let cmd = get_cmd(interaction)?;
 
     let mut name = cmd.name.replace(':', "").to_lowercase();
     name.retain(|c| !c.is_whitespace());
 
     sqlx::query!("DELETE FROM bigmoji WHERE name = ?;", name)
-        .execute(&*DB_POOL)
+        .execute(&db)
         .await
         .with_context(|| "deleting bigmoji")?;
 
     Ok(format!("Deleted BigMoji `:{}:`", name))
 }
 
-pub async fn get(interaction: &Interaction) -> anyhow::Result<String> {
+pub async fn get(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
     let cmd = get_cmd(interaction)?;
 
     let mut name = cmd.name.replace(':', "").to_lowercase();
@@ -66,7 +67,7 @@ pub async fn get(interaction: &Interaction) -> anyhow::Result<String> {
 
     let moji: Option<BigMoji> =
         sqlx::query_as!(BigMoji, "SELECT * FROM bigmoji WHERE name = ?;", name)
-            .fetch_optional(&*DB_POOL)
+            .fetch_optional(&db)
             .await
             .with_context(|| "getting bigmoji")?;
 

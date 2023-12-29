@@ -1,13 +1,14 @@
 use std::fmt;
 use std::str::FromStr;
 
-use axum::extract::Query;
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 use serde::Deserializer;
 use serde::{de, Deserialize};
+use sqlx::SqlitePool;
 use tracing::instrument;
 
 use super::templates::*;
@@ -40,13 +41,14 @@ where
 }
 
 #[instrument]
-pub fn router() -> Router {
+pub fn router(db: SqlitePool) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/bigmoji", get(bigmoji))
         .route("/drunks", get(drunks))
         .route("/quotes", get(quotes))
         .fallback(not_found)
+        .with_state(db)
 }
 
 #[instrument]
@@ -58,14 +60,17 @@ async fn index() -> IndexTemplate {
 }
 
 #[instrument]
-async fn bigmoji() -> Result<BigMojiTemplate, AppError> {
+async fn bigmoji(State(db): State<SqlitePool>) -> Result<BigMojiTemplate, AppError> {
     Ok(BigMojiTemplate {
-        bigmoji: get_all_bigmoji().await?,
+        bigmoji: get_all_bigmoji(db).await?,
     })
 }
 
 #[instrument]
-async fn quotes(Query(query): Query<QuotesQuery>) -> Result<QuotesTemplate, AppError> {
+async fn quotes(
+    State(db): State<SqlitePool>,
+    Query(query): Query<QuotesQuery>,
+) -> Result<QuotesTemplate, AppError> {
     let from_date = query
         .from_date
         .clone()
@@ -73,7 +78,8 @@ async fn quotes(Query(query): Query<QuotesQuery>) -> Result<QuotesTemplate, AppE
     let to_date = query.to_date.clone().unwrap_or_else(|| "3000-01-01".into());
     let user_id = query.user.unwrap_or(0);
 
-    let (quotes, selected, from_date, to_date) = get_quotes(from_date, to_date, user_id).await?;
+    let (quotes, selected, from_date, to_date) =
+        get_quotes(db, from_date, to_date, user_id).await?;
 
     Ok(QuotesTemplate {
         quotes,
@@ -84,9 +90,9 @@ async fn quotes(Query(query): Query<QuotesQuery>) -> Result<QuotesTemplate, AppE
 }
 
 #[instrument]
-async fn drunks() -> Result<DrunksTemplate, AppError> {
+async fn drunks(State(db): State<SqlitePool>) -> Result<DrunksTemplate, AppError> {
     Ok(DrunksTemplate {
-        drunks: get_drunks().await?,
+        drunks: get_drunks(db).await?,
     })
 }
 
