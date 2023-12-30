@@ -26,7 +26,8 @@ pub struct QuotesTemplate {
 #[derive(Template)]
 #[template(path = "drunks.html")]
 pub struct DrunksTemplate {
-    pub drunks: Vec<Drunk>,
+    pub drunks: Vec<(String, Drunk)>,
+    pub last_spill_days: i64,
 }
 
 mod filters {

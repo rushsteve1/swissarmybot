@@ -184,7 +184,9 @@ pub async fn interactions_definition(ctx: Ctx) -> anyhow::Result<Vec<Command>> {
                 .add_sub_option(drink_name_subcmd),
         );
 
-    Command::set_global_commands(ctx, vec![quote_cmd, drunk_cmd])
+    let spill_cmd = CreateCommand::new("spill").description("Report that a Spill has occured");
+
+    Command::set_global_commands(ctx, vec![quote_cmd, drunk_cmd, spill_cmd])
         .await
         .with_context(|| "Error sending interaction data to Discord")
 }

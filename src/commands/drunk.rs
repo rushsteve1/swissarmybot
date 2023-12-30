@@ -17,6 +17,7 @@ pub struct Drunk {
     pub derby: i64,
     pub updated_at: NaiveDateTime,
     pub score: i64,
+    pub last_drink: Option<String>,
     pub last_spill: Option<NaiveDateTime>,
 }
 
@@ -36,7 +37,7 @@ pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::
         error!("command value was not a subcommand");
         return Err(anyhow::anyhow!("command value was not a subcommand"));
     };
-    let drink_name = subcmds[0].value.as_str();
+    let drink_name = subcmds.get(0).and_then(|d| d.value.as_str());
 
     sqlx::query!(
         "INSERT INTO drunk (user_id, user_name) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING;",
@@ -95,6 +96,14 @@ pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::
             name
         ))
     } else {
+        sqlx::query!(
+            "UPDATE drunk SET last_drink = NULL WHERE user_id = ?;",
+            author_id
+        )
+        .execute(&db)
+        .await
+        .with_context(|| "clearing last_drink")?;
+
         Ok(format!("{} had a {}", author.mention(), cmd.name.as_str()))
     }
 }

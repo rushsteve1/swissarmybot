@@ -67,11 +67,10 @@ pub async fn get_quotes(
 
 #[instrument]
 pub async fn get_drunks(db: SqlitePool) -> anyhow::Result<Vec<Drunk>> {
-    // sqlx::query_as!(Drunk, "SELECT * FROM drunk ORDER BY score DESC;")
-    //     .fetch_all(&db)
-    //     .await
-    //     .with_context(|| "getting drunks")
-    todo!()
+    sqlx::query_as!(Drunk, "SELECT * FROM drunk ORDER BY score DESC;")
+        .fetch_all(&db)
+        .await
+        .with_context(|| "getting drunks")
 }
 
 #[instrument]

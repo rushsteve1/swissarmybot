@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 #![forbid(future_incompatible)]
+#![forbid(clippy::indexing_slicing)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
+#![deny(clippy::invalid_regex)]
 
 use std::{env, future::IntoFuture};
 

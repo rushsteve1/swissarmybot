@@ -1,5 +1,5 @@
 use anyhow::Context;
-use serenity::all::Context as Ctx;
+use serenity::all::{Context as Ctx, Mentionable, UserId};
 use serenity::all::{
     CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, Interaction,
     Message, Reaction, ReactionType, Ready,
@@ -40,6 +40,7 @@ impl EventHandler for Handler {
             "quote" => handle_quote_command(ctx.clone(), &interaction).await,
             "bigmoji" => handle_bigmoji_command(ctx.clone(), &interaction).await,
             "drunk" => handle_drunk_command(ctx.clone(), &interaction).await,
+            "spill" => handle_spill_command(ctx.clone(), &interaction).await,
             _ => Err(anyhow::anyhow!("unknown command")),
         };
 
@@ -137,6 +138,29 @@ async fn handle_downvote(ctx: Ctx, reaction: Reaction) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[instrument]
+async fn handle_spill_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
+    let db = get_db(ctx).await?;
+    let inter = get_inter(interaction)?;
+    let author = inter
+        .member
+        .as_ref()
+        .ok_or(anyhow::anyhow!("interaction had no author"))?;
+    let author_id = author.user.id.to_string();
+
+    sqlx::query!(
+        "UPDATE drunk SET last_spill = CURRENT_TIMESTAMP WHERE user_id = ?;",
+        author_id
+    )
+    .execute(&db)
+    .await?;
+
+    Ok(format!(
+        "# ALERT A SPILL HAS OCCURED\nINFORMING THE COMMANDING OFFICER {}",
+        UserId::new(115178518391947265).mention()
+    ))
 }
 
 #[instrument]

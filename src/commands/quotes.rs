@@ -28,11 +28,11 @@ pub async fn add(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
         bail!("was not subcommand");
     };
 
-    let Some(user_id) = cmds[0].value.as_user_id() else {
+    let Some(user_id) = cmds.get(0).and_then(|u| u.value.as_user_id()) else {
         bail!("no user id");
     };
     let user = user_id.to_user(ctx).await?;
-    let Some(text) = cmds[1].value.as_str() else {
+    let Some(text) = cmds.get(1).and_then(|t| t.value.as_str()) else {
         bail!("no quote text")
     };
 
@@ -64,9 +64,9 @@ pub async fn remove(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<Strin
         bail!("was not subcommand");
     };
 
-    let id = cmds[0]
-        .value
-        .as_i64()
+    let id = cmds
+        .get(0)
+        .and_then(|c| c.value.as_i64())
         .ok_or(anyhow::anyhow!("quote get id"))?;
 
     let row = sqlx::query_scalar!("DELETE FROM quotes WHERE id = ? RETURNING user_id;", id)
@@ -92,9 +92,9 @@ pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
         bail!("was not subcommand");
     };
 
-    let id = cmds[0]
-        .value
-        .as_i64()
+    let id = cmds
+        .get(0)
+        .and_then(|c| c.value.as_i64())
         .ok_or(anyhow::anyhow!("quote get id"))?;
 
     let quote: Option<Quote> = sqlx::query_as!(Quote, "SELECT * FROM quotes WHERE id = ?;", id)

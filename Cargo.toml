@@ -1,6 +1,6 @@
 [package]
 name = "swiss_army_bot"
-version = "1.6.1-nein"
+version = "1.7.0-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
@@ -8,8 +8,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "^1.0"
-askama_axum = "^0.4"
-axum = "0.7.2"
+askama_axum = "*"
+axum = "^0.7"
 chrono = "*"
 chrono-tz = "*"
 clokwerk = "^0.4"

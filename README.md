@@ -5,7 +5,8 @@ A Discord bot that does a whole bunch of things that no one needs. Like a Swiss 
 # TODO List
 
 - [x] Better error handling (eventually disable unwrap/expect)
-- [ ] Spill tracker
+- [x] Spill tracker
+- [ ] Quote message interaction
 - [x] General cleanups
 - [x] SQLx compile-time validations
 - [x] Replace Gotham with Axum
