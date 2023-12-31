@@ -15,6 +15,7 @@ pub struct Drunk {
     pub shots: i64,
     pub cocktails: i64,
     pub derby: i64,
+    pub water: i64,
     pub updated_at: NaiveDateTime,
     pub score: i64,
     pub last_drink: Option<String>,
@@ -49,7 +50,8 @@ pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::
     .with_context(|| "inserting drunk")?;
 
     // Repetitive, but that's the price of compile-time SQL validation
-    match cmd.name.as_str() {
+    let drink_type = cmd.name.as_str();
+    match drink_type {
             "beer" => sqlx::query!(
                 "UPDATE drunk SET beer = beer + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
                 author_id
@@ -70,6 +72,10 @@ pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::
                 "UPDATE drunk SET derby = derby + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
                 author_id
             ),
+            "water" => sqlx::query!(
+                "UPDATE drunk SET water = water + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
+                author_id
+            ),
             _ => {
                 error!("unknown drink type");
                 return Err(anyhow::anyhow!("unknown drink type"));
@@ -79,31 +85,29 @@ pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::
         .await
         .with_context(|| "updating drunk")?;
 
-    if let Some(name) = drink_name {
-        sqlx::query!(
-            "UPDATE drunk SET last_drink = ? WHERE user_id = ?;",
-            name,
-            author_id
-        )
-        .execute(&db)
-        .await
-        .with_context(|| "updating last_drink")?;
+    let type_str = if let Some(name) = drink_name {
+        format!("{}: {}", drink_type, name)
+    } else {
+        format!("{}", drink_type)
+    };
 
+    sqlx::query!(
+        "UPDATE drunk SET last_drink = ? WHERE user_id = ?;",
+        type_str,
+        author_id
+    )
+    .execute(&db)
+    .await
+    .with_context(|| "updating last_drink")?;
+
+    if let Some(name) = drink_name {
         Ok(format!(
-            "{} had a {} [`{}`]",
+            "{} had a {}: `{}`",
             author.mention(),
             cmd.name.as_str(),
             name
         ))
     } else {
-        sqlx::query!(
-            "UPDATE drunk SET last_drink = NULL WHERE user_id = ?;",
-            author_id
-        )
-        .execute(&db)
-        .await
-        .with_context(|| "clearing last_drink")?;
-
         Ok(format!("{} had a {}", author.mention(), cmd.name.as_str()))
     }
 }

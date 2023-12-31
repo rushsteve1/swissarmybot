@@ -2,16 +2,16 @@ use std::{env, sync::Arc};
 
 use anyhow::Context;
 use scraper::{Html, Selector};
-use serenity::all::Context as Ctx;
 use serenity::all::{
-    ChannelId, CommandDataOption, CommandInteraction, CreateMessage, Http, Interaction,
-    Mentionable, Message,
+    ChannelId, CommandDataOption, CommandInteraction, Context as Ctx, CreateMessage, Http,
+    Interaction, Mentionable, Message, UserId,
 };
 use sqlx::SqlitePool;
 use tracing::{instrument, warn};
 
 use crate::commands::{BigMoji, Drunk, Quote};
 
+pub const THE_CAPTAIN: UserId = UserId::new(115178518391947265);
 const GOOD_STONKS: &str = "📈";
 const BAD_STONKS: &str = "📉";
 const STONKS_URL: &str = "https://finance.yahoo.com";

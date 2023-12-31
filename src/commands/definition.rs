@@ -181,6 +181,10 @@ pub async fn interactions_definition(ctx: Ctx) -> anyhow::Result<Vec<Command>> {
         ))
         .add_option(
             CreateCommandOption::new(CommandOptionType::SubCommand, "derby", "🎺 🏇")
+                .add_sub_option(drink_name_subcmd.clone()),
+        )
+        .add_option(
+            CreateCommandOption::new(CommandOptionType::SubCommand, "water", "The healthy choice")
                 .add_sub_option(drink_name_subcmd),
         );
 

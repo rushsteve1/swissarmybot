@@ -1,14 +1,13 @@
 use anyhow::Context;
-use serenity::all::{Context as Ctx, Mentionable, UserId};
 use serenity::all::{
-    CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler, Interaction,
-    Message, Reaction, ReactionType, Ready,
+    Context as Ctx, CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler,
+    Interaction, Mentionable, Message, Reaction, ReactionType, Ready,
 };
 use serenity::async_trait;
 use tracing::{error, info, instrument};
 
 use super::definition::interactions_definition;
-use crate::helpers::{domain, get_bigmoji, get_cmd, get_db, get_inter};
+use crate::helpers::{domain, get_bigmoji, get_cmd, get_db, get_inter, THE_CAPTAIN};
 
 const DOWN: &str = "⬇️";
 const DOWNVOTE_LIMIT: u8 = 5;
@@ -76,7 +75,7 @@ impl EventHandler for Handler {
     }
 
     #[instrument]
-    async fn reaction_add(&self, ctx: serenity::all::Context, reaction: Reaction) {
+    async fn reaction_add(&self, ctx: Ctx, reaction: Reaction) {
         handle_downvote(ctx, reaction)
             .await
             .unwrap_or_else(|e| error!(error = %e, "could not delete downvoted message"));
@@ -160,7 +159,7 @@ async fn handle_spill_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Re
     Ok(format!(
         "# SPILL ALERT\n{} **HAS SPILLED**\n**INFORMING THE COMMANDING OFFICER** {}\n\nThis incident has been recorded.",
         author.mention(),
-        UserId::new(115178518391947265).mention()
+        THE_CAPTAIN.mention()
     ))
 }
 

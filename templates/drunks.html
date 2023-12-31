@@ -14,7 +14,7 @@
         <thead>
             <th>Drunkard</th>
             <th>
-                <abbr title="beer + (wine * 2) + (shots * 2) + (cocktails * 2) + (derby * 5)">
+                <abbr title="beer + (wine * 2) + (shots * 2) + (cocktails * 2) + (derby * 3)">
                     Score
                 </abbr>
             </th>
@@ -23,9 +23,10 @@
             <th>Shots</th>
             <th>Cocktails</th>
             <th>Derby</th>
-            <th>Last Drink</th>
-            <th>Last Drink At</th>
-            <th>Last Spill At</th>
+            <th>Water</th>
+            <th nowrap>Last Drink</th>
+            <th nowrap>Last Drink At</th>
+            <th nowrap>Last Spill At</th>
         </thead>
         <tbody>
             {% for (spill_str, drunk) in drunks %}
@@ -37,9 +38,10 @@
                 <td>{{ drunk.shots }}</td>
                 <td>{{ drunk.cocktails }}</td>
                 <td>{{ drunk.derby }}</td>
-                <td>{{ drunk.last_drink.clone().unwrap_or_default() }}</td>
+                <td>{{ drunk.water }}</td>
+                <td nowrap>{{ drunk.last_drink.clone().unwrap_or_default() }}</td>
                 <td nowrap>{{ drunk.updated_at }}</td>
-                <td>{{ spill_str }}</td>
+                <td nowrap>{{ spill_str }}</td>
             </tr>
             {% endfor %}
         </tbody>
