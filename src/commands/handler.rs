@@ -158,7 +158,8 @@ async fn handle_spill_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Re
     .await?;
 
     Ok(format!(
-        "# ALERT A SPILL HAS OCCURED\nINFORMING THE COMMANDING OFFICER {}",
+        "# SPILL ALERT\n{} **HAS SPILLED**\n**INFORMING THE COMMANDING OFFICER** {}\n\nThis incident has been recorded.",
+        author.mention(),
         UserId::new(115178518391947265).mention()
     ))
 }

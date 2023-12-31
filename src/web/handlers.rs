@@ -100,7 +100,7 @@ async fn drunks(State(db): State<SqlitePool>) -> Result<DrunksTemplate, AppError
             (
                 d.last_spill
                     .map(|o| o.to_string())
-                    .unwrap_or("Never!".to_string()),
+                    .unwrap_or("N/A".to_string()),
                 d,
             )
         })
