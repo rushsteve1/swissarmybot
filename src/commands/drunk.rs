@@ -22,6 +22,14 @@ pub struct Drunk {
     pub last_spill: Option<NaiveDateTime>,
 }
 
+impl Drunk {
+    pub fn last_spill_str(&self) -> String {
+        self.last_spill
+            .map(|o| o.to_string())
+            .unwrap_or("N/A".to_string())
+    }
+}
+
 #[instrument]
 pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
     let inter = get_inter(interaction)?;

@@ -119,7 +119,7 @@ pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
 pub async fn list(interaction: &Interaction) -> anyhow::Result<String> {
     let cmd = get_cmd(interaction)?;
 
-    if let Some(user_id) = cmd.value.as_user_id() {
+    if let CommandDataOptionValue::User(user_id) = cmd.value.clone() {
         Ok(format!("http://{}/quotes?user={}", domain(), user_id))
     } else {
         Ok(format!("http://{}/quotes", domain()))

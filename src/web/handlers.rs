@@ -14,7 +14,6 @@ use tracing::instrument;
 
 use super::templates::*;
 
-use crate::commands::Drunk;
 use crate::helpers::get_all_bigmoji;
 use crate::helpers::get_drunks;
 use crate::helpers::get_quotes;
@@ -94,17 +93,6 @@ async fn quotes(
 #[instrument]
 async fn drunks(State(db): State<SqlitePool>) -> Result<DrunksTemplate, AppError> {
     let drunks = get_drunks(db.clone()).await?;
-    let drunks: Vec<(String, Drunk)> = drunks
-        .into_iter()
-        .map(|d| {
-            (
-                d.last_spill
-                    .map(|o| o.to_string())
-                    .unwrap_or("N/A".to_string()),
-                d,
-            )
-        })
-        .collect();
 
     let last_spill_days: i64 = sqlx::query_scalar!(
         r#"SELECT max(last_spill) AS "last_spill?: chrono::NaiveDateTime" FROM drunk WHERE last_spill IS NOT NULL LIMIT 1;"#

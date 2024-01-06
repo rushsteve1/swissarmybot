@@ -29,7 +29,7 @@
             <th nowrap>Last Spill At</th>
         </thead>
         <tbody>
-            {% for (spill_str, drunk) in drunks %}
+            {% for drunk in drunks %}
             <tr>
                 <td nowrap>{{ drunk.user_name }}</td>
                 <td><strong>{{ drunk.score }}</strong></td>
@@ -41,7 +41,7 @@
                 <td>{{ drunk.water }}</td>
                 <td nowrap>{{ drunk.last_drink.clone().unwrap_or_default() }}</td>
                 <td nowrap>{{ drunk.updated_at }}</td>
-                <td nowrap>{{ spill_str }}</td>
+                <td nowrap>{{ drunk.last_spill_str() }}</td>
             </tr>
             {% endfor %}
         </tbody>
