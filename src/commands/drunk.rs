@@ -24,9 +24,7 @@ pub struct Drunk {
 
 impl Drunk {
     pub fn last_spill_str(&self) -> String {
-        self.last_spill
-            .map(|o| o.to_string())
-            .unwrap_or("N/A".to_string())
+        self.last_spill.map_or("N/A".to_string(), |o| o.to_string())
     }
 }
 

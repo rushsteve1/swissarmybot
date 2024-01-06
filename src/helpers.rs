@@ -1,4 +1,4 @@
-use std::{env, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Context;
 use scraper::{Html, Selector};
@@ -154,12 +154,15 @@ pub fn get_cmd(interaction: &Interaction) -> anyhow::Result<&CommandDataOption> 
 pub async fn get_db(ctx: Ctx) -> anyhow::Result<SqlitePool> {
     let lock = ctx.data.read().await;
     let Some(db) = lock.get::<crate::DB>() else {
-        anyhow::bail!("could not get database");
+        anyhow::bail!("could not get database from context");
     };
     Ok(db.clone())
 }
 
-#[inline]
-pub fn domain() -> String {
-    env::var("WEB_DOMAIN").unwrap_or_else(|_| "0.0.0.0".to_string())
+pub async fn get_cfg(ctx: Ctx) -> anyhow::Result<crate::Config> {
+    let lock = ctx.data.read().await;
+    let Some(cfg) = lock.get::<crate::Config>() else {
+        anyhow::bail!("could not get config from context");
+    };
+    Ok(cfg.clone())
 }

@@ -5,7 +5,7 @@ use serenity::all::UserId;
 use serenity::all::{CommandDataOptionValue, Context as Ctx, Interaction, Mentionable};
 use tracing::instrument;
 
-use crate::helpers::domain;
+use crate::helpers::get_cfg;
 use crate::helpers::{get_cmd, get_db, get_inter};
 
 #[derive(sqlx::FromRow)]
@@ -116,12 +116,17 @@ pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
 }
 
 #[instrument]
-pub async fn list(interaction: &Interaction) -> anyhow::Result<String> {
+pub async fn list(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
+    let cfg = get_cfg(ctx).await?;
     let cmd = get_cmd(interaction)?;
 
-    if let CommandDataOptionValue::User(user_id) = cmd.value.clone() {
-        Ok(format!("http://{}/quotes?user={}", domain(), user_id))
+    let CommandDataOptionValue::SubCommand(cmds) = cmd.value.clone() else {
+        bail!("was not subcommand");
+    };
+
+    if let Some(user_id) = cmds.get(0).and_then(|u| u.value.as_user_id()) {
+        Ok(format!("http://{}/quotes?user={}", cfg.addr, user_id))
     } else {
-        Ok(format!("http://{}/quotes", domain()))
+        Ok(format!("http://{}/quotes", cfg.addr))
     }
 }

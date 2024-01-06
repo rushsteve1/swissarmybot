@@ -1,6 +1,6 @@
 [package]
 name = "swiss_army_bot"
-version = "1.7.1-nein"
+version = "1.7.2-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
@@ -13,11 +13,16 @@ axum = "^0.7"
 chrono = "*"
 chrono-tz = "*"
 clokwerk = "^0.4"
+opentelemetry = "*"
+opentelemetry-otlp = { version = "^0.14", features = ["tls", "tls-roots"] }
+opentelemetry_sdk = { version = "*", features = ["rt-tokio"] }
 regex = "*"
 scraper = "^0.18"
 serde = "*"
 serde_derive = "*"
+tonic = "*"
 tracing = "*"
+tracing-opentelemetry = "^0.22"
 tracing-subscriber = "*"
 
 [dependencies.askama]

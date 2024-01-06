@@ -7,7 +7,7 @@ use serenity::async_trait;
 use tracing::{error, info, instrument};
 
 use super::definition::interactions_definition;
-use crate::helpers::{domain, get_bigmoji, get_cmd, get_db, get_inter, THE_CAPTAIN};
+use crate::helpers::{get_bigmoji, get_cfg, get_cmd, get_db, get_inter, THE_CAPTAIN};
 
 const DOWN: &str = "⬇️";
 const DOWNVOTE_LIMIT: u8 = 5;
@@ -90,21 +90,22 @@ async fn handle_quote_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Re
         "add" => super::quotes::add(ctx, interaction).await,
         "remove" => super::quotes::remove(ctx, interaction).await,
         "get" => super::quotes::get(ctx, interaction).await,
-        "list" => super::quotes::list(interaction).await,
+        "list" => super::quotes::list(ctx, interaction).await,
         _ => Err(anyhow::anyhow!("unknown quote command")),
     }
 }
 
 #[instrument]
 async fn handle_bigmoji_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
-    let db = get_db(ctx).await?;
+    let db = get_db(ctx.clone()).await?;
+    let cfg = get_cfg(ctx).await?;
     let cmd = get_cmd(interaction)?;
 
     match cmd.name.as_str() {
         "add" => super::bigmoji::add(db, interaction).await,
         "remove" => super::bigmoji::remove(db, interaction).await,
         "get" => super::bigmoji::get(db, interaction).await,
-        "list" => Ok(format!("http://{}/bigmoji", domain())),
+        "list" => Ok(format!("http://{}/bigmoji", cfg.addr)),
         _ => Err(anyhow::anyhow!("unknown bigmoji command")),
     }
 }
