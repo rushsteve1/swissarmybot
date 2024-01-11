@@ -1,6 +1,6 @@
 [package]
 name = "swiss_army_bot"
-version = "1.7.2-nein"
+version = "1.7.3-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
@@ -20,7 +20,7 @@ regex = "*"
 scraper = "^0.18"
 serde = "*"
 serde_derive = "*"
-tonic = "*"
+tonic = "^0.9"
 tracing = "*"
 tracing-opentelemetry = "^0.22"
 tracing-subscriber = "*"

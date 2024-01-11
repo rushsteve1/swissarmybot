@@ -8,13 +8,15 @@
 use std::{env, future::IntoFuture, time::Duration};
 
 use anyhow::{bail, Context};
-use opentelemetry::KeyValue;
-use opentelemetry_otlp::{Protocol, WithExportConfig};
-use opentelemetry_sdk::{trace, Resource};
 use serenity::all::ApplicationId;
 use serenity::prelude::*;
 use sqlx::{migrate::MigrateDatabase, SqlitePool};
+
+use opentelemetry::KeyValue;
+use opentelemetry_otlp::{Protocol, WithExportConfig};
+use opentelemetry_sdk::{trace, Resource};
 use tracing::{debug, info, instrument, warn};
+use tracing_subscriber::layer::SubscriberExt;
 
 mod commands;
 mod helpers;
@@ -23,9 +25,7 @@ mod web;
 
 use commands::Handler;
 use jobs::setup_jobs;
-use tracing_subscriber::layer::SubscriberExt;
-
-use crate::web::router;
+use web::router;
 
 // Get version and git info from environment variables during compile
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
@@ -116,7 +116,7 @@ fn setup_config() -> anyhow::Result<Config> {
     let addr = format!("{}:{}", domain, port);
 
     let otlp_endpoint =
-        env::var("OTLP_ENDPOINT").unwrap_or_else(|_| "https://otlp.nr-data.net:4317".to_string());
+        env::var("OTLP_ENDPOINT").unwrap_or_else(|_| "https://otlp.nr-data.net:4318".to_string());
 
     let nr_api_key = env::var("NR_API_KEY").unwrap_or_default();
     if nr_api_key.is_empty() && otlp_endpoint.contains("nr-data.net") {
@@ -200,5 +200,5 @@ async fn setup_db() -> anyhow::Result<SqlitePool> {
 
     info!("Database migration completed");
 
-    return Ok(db_pool);
+    Ok(db_pool)
 }

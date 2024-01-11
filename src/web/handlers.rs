@@ -41,7 +41,6 @@ where
     }
 }
 
-#[instrument]
 pub fn router(db: SqlitePool) -> Router {
     Router::new()
         .route("/", get(index))
