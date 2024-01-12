@@ -1,13 +1,10 @@
 mod bigmoji;
 mod definition;
-mod drunk;
+mod drunks;
 mod handler;
 mod quotes;
 
-pub use bigmoji::BigMoji;
-pub use drunk::Drunk;
 pub use handler::Handler;
-pub use quotes::Quote;
 
 use serenity::model::application::CommandDataOptionValue as OptionValue;
 

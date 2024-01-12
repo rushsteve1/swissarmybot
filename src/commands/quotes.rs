@@ -1,23 +1,8 @@
 use anyhow::bail;
-use anyhow::Context;
-use chrono::NaiveDateTime;
-use serenity::all::{CommandDataOptionValue, Context as Ctx, Interaction, Mentionable, UserId};
-use sqlx::SqlitePool;
-use tracing::instrument;
+use serenity::all::{CommandDataOptionValue, Context as Ctx, Interaction, Mentionable};
 
-use crate::helpers::get_cfg;
-use crate::helpers::{get_cmd, get_db, get_inter};
-
-#[derive(sqlx::FromRow)]
-pub struct Quote {
-    pub id: i64,
-    pub user_id: i64,
-    pub user_name: String,
-    pub author_id: i64,
-    pub author_name: String,
-    pub text: String,
-    pub inserted_at: NaiveDateTime,
-}
+use crate::shared::helpers::{get_cfg, get_cmd, get_db, get_inter};
+use crate::shared::quotes;
 
 pub async fn add(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
     let db = get_db(ctx.clone()).await?;
@@ -44,7 +29,7 @@ pub async fn add(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
     let author_id = author.user.id;
     let author_name = author.user.name.clone();
 
-    add_handler(
+    quotes::add(
         db,
         user_id,
         user_name,
@@ -52,27 +37,7 @@ pub async fn add(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
         author_name.as_str(),
         text,
     )
-    .await
-}
-
-#[instrument]
-async fn add_handler(
-    db: SqlitePool,
-    user_id: UserId,
-    user_name: &str,
-    author_id: UserId,
-    author_name: &str,
-    text: &str,
-) -> anyhow::Result<String> {
-    let user_id_s = user_id.to_string();
-    let author_id_s = author_id.to_string();
-
-    sqlx::query!("INSERT INTO quotes (text, user_id, user_name, author_id, author_name) VALUES (?, ?, ?, ?, ?);",
-                        text,
-                        user_id_s, user_name, author_id_s, author_name)
-                        .execute(&db)
-                        .await
-                        .with_context(|| "error inserting quote")?;
+    .await?;
 
     Ok(format!(
         "Quote added for {}\n>>> {}",
@@ -94,20 +59,7 @@ pub async fn remove(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<Strin
         .and_then(|c| c.value.as_i64())
         .ok_or(anyhow::anyhow!("quote get id"))?;
 
-    remove_handler(db, id).await
-}
-
-#[instrument]
-async fn remove_handler(db: SqlitePool, id: i64) -> anyhow::Result<String> {
-    let row = sqlx::query_scalar!("DELETE FROM quotes WHERE id = ? RETURNING user_id;", id)
-        .fetch_optional(&db)
-        .await
-        .with_context(|| "error deleting quote")?;
-
-    Ok(row
-        .map(|i| UserId::new(i as u64))
-        .map(|user_id| format!("Quote {} removed by {}", id, user_id.mention()))
-        .unwrap_or(format!("Quote {} does not exist", id)))
+    quotes::remove(db, id).await
 }
 
 pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
@@ -123,26 +75,7 @@ pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
         .and_then(|c| c.value.as_i64())
         .ok_or(anyhow::anyhow!("quote get id"))?;
 
-    get_handler(db, id).await
-}
-
-#[instrument]
-async fn get_handler(db: SqlitePool, id: i64) -> anyhow::Result<String> {
-    let quote: Option<Quote> = sqlx::query_as!(Quote, "SELECT * FROM quotes WHERE id = ?;", id)
-        .fetch_optional(&db)
-        .await
-        .with_context(|| "error getting quote")?;
-
-    Ok(quote
-        .map(|q| {
-            format!(
-                "Quote {} by {}\n>>> {}",
-                id,
-                UserId::new(q.user_id as u64).mention(),
-                q.text
-            )
-        })
-        .unwrap_or(format!("Quote {} does not exist", id)))
+    quotes::get_one(db, id).await
 }
 
 pub async fn list(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
@@ -155,12 +88,5 @@ pub async fn list(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String>
 
     let user_id = cmds.first().and_then(|u| u.value.as_user_id());
 
-    Ok(list_handler(cfg, user_id))
-}
-
-#[instrument]
-fn list_handler(cfg: crate::Config, user_id: Option<UserId>) -> String {
-    user_id
-        .map(|u| format!("http://{}/quotes?user={}", cfg.addr, u))
-        .unwrap_or(format!("http://{}/quotes", cfg.addr))
+    Ok(quotes::list_url(cfg, user_id))
 }

@@ -19,8 +19,8 @@ use tracing::{debug, info, instrument, warn};
 use tracing_subscriber::layer::SubscriberExt;
 
 mod commands;
-mod helpers;
 mod jobs;
+mod shared;
 mod web;
 
 use commands::Handler;

@@ -1,9 +1,8 @@
 use anyhow::Context;
 use chrono::NaiveDateTime;
-use serenity::all::{CommandDataOptionValue, Interaction, Mentionable, UserId};
+use serenity::all::UserId;
+use sqlx::SqlitePool;
 use tracing::{error, instrument};
-
-use crate::helpers::{get_cmd, get_inter};
 
 #[derive(sqlx::FromRow)]
 pub struct Drunk {
@@ -28,35 +27,14 @@ impl Drunk {
     }
 }
 
-pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
-    let inter = get_inter(interaction)?;
-    let cmd = get_cmd(interaction)?;
-
-    let author = inter
-        .member
-        .as_ref()
-        .ok_or(anyhow::anyhow!("interaction had no author"))?;
-    let author_id = author.user.id;
-    let author_name = author.user.name.to_string();
-
-    let drink_type = cmd.name.as_str();
-    let CommandDataOptionValue::SubCommand(subcmds) = cmd.value.clone() else {
-        error!("command value was not a subcommand");
-        return Err(anyhow::anyhow!("command value was not a subcommand"));
-    };
-    let drink_name = subcmds.first().and_then(|d| d.value.as_str());
-
-    update_handler(db, author_id, author_name.as_str(), drink_type, drink_name).await
-}
-
 #[instrument]
-async fn update_handler(
-    db: sqlx::SqlitePool,
+pub async fn update(
+    db: SqlitePool,
     author_id: UserId,
     author_name: &str,
     drink_type: &str,
     drink_name: Option<&str>,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<(UserId, String)> {
     let author_id_s = author_id.to_string();
 
     sqlx::query!(
@@ -118,5 +96,13 @@ async fn update_handler(
     .await
     .with_context(|| "updating last_drink")?;
 
-    Ok(format!("{} had a {}", author_id.mention(), type_str))
+    Ok((author_id, type_str))
+}
+
+#[instrument]
+pub async fn get_all(db: SqlitePool) -> anyhow::Result<Vec<Drunk>> {
+    sqlx::query_as!(Drunk, "SELECT * FROM drunk ORDER BY score DESC;")
+        .fetch_all(&db)
+        .await
+        .with_context(|| "getting drunks")
 }

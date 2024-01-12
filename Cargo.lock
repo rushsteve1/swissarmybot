@@ -2647,7 +2647,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "swiss_army_bot"
-version = "1.7.3-nein"
+version = "1.7.4-nein"
 dependencies = [
  "anyhow",
  "askama",

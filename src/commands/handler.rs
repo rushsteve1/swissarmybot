@@ -7,7 +7,8 @@ use serenity::async_trait;
 use tracing::{error, info, instrument};
 
 use super::definition::interactions_definition;
-use crate::helpers::{get_bigmoji, get_cfg, get_cmd, get_db, get_inter, THE_CAPTAIN};
+use crate::shared::bigmoji;
+use crate::shared::helpers::{get_cfg, get_cmd, get_db, get_inter, THE_CAPTAIN};
 
 const DOWN: &str = "⬇️";
 const DOWNVOTE_LIMIT: u8 = 5;
@@ -113,7 +114,7 @@ async fn handle_bigmoji_command(ctx: Ctx, interaction: &Interaction) -> anyhow::
 #[instrument]
 async fn handle_drunk_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
     let db = get_db(ctx).await?;
-    super::drunk::update(db, interaction).await
+    super::drunks::update(db, interaction).await
 }
 
 #[instrument]
@@ -178,7 +179,7 @@ async fn send_bigmoji(ctx: Ctx, message: &Message) -> anyhow::Result<()> {
             .ok_or(anyhow::anyhow!("did not match"))?
             .as_str()
             .to_lowercase();
-        let moji = get_bigmoji(db.clone(), term).await?;
+        let moji = bigmoji::get_one(db.clone(), term.as_str()).await?;
 
         if let Some(moji) = moji {
             message

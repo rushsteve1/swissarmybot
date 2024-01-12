@@ -1,4 +1,4 @@
-use crate::commands::{BigMoji, Drunk, Quote};
+use crate::shared::{BigMoji, Drunk, Quote};
 use askama::Template;
 
 #[derive(Template)]
@@ -18,7 +18,7 @@ pub struct BigMojiTemplate {
 #[template(path = "quotes.html")]
 pub struct QuotesTemplate {
     pub quotes: Vec<Quote>,
-    pub selected: i64,
+    pub selected: Option<u64>,
     pub from_date: String,
     pub to_date: String,
 }

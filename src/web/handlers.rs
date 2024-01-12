@@ -9,20 +9,19 @@ use axum::Router;
 use chrono::Local;
 use serde::Deserializer;
 use serde::{de, Deserialize};
+use serenity::all::UserId;
 use sqlx::SqlitePool;
 use tracing::instrument;
 
 use super::templates::*;
 
-use crate::helpers::get_all_bigmoji;
-use crate::helpers::get_drunks;
-use crate::helpers::get_quotes;
+use crate::shared::{bigmoji, drunks, quotes};
 use crate::{GIT_VERSION, VERSION};
 
 #[derive(Debug, Deserialize)]
 struct QuotesQuery {
     #[serde(default, deserialize_with = "empty_string_as_none")]
-    user: Option<i64>,
+    user: Option<u64>,
     from_date: Option<String>,
     to_date: Option<String>,
 }
@@ -62,7 +61,7 @@ async fn index() -> IndexTemplate {
 #[instrument]
 async fn bigmoji(State(db): State<SqlitePool>) -> Result<BigMojiTemplate, AppError> {
     Ok(BigMojiTemplate {
-        bigmoji: get_all_bigmoji(db).await?,
+        bigmoji: bigmoji::get_all(db).await?,
     })
 }
 
@@ -73,25 +72,31 @@ async fn quotes(
 ) -> Result<QuotesTemplate, AppError> {
     let from_date = query
         .from_date
-        .clone()
-        .unwrap_or_else(|| "1970-01-01".into());
-    let to_date = query.to_date.clone().unwrap_or_else(|| "3000-01-01".into());
-    let user_id = query.user.unwrap_or(0);
+        .map(|d| d.parse().unwrap_or_default())
+        .unwrap_or_default();
+    let to_date = query
+        .to_date
+        .map(|d| d.parse().unwrap_or_default())
+        .unwrap_or_default();
 
-    let (quotes, selected, from_date, to_date) =
-        get_quotes(db, from_date, to_date, user_id).await?;
+    let selected = query.user.map(UserId::new);
+    let quotes = if let Some(user_id) = selected {
+        quotes::get_for_user_id(db, from_date, to_date, user_id).await?
+    } else {
+        quotes::get_all(db, from_date, to_date).await?
+    };
 
     Ok(QuotesTemplate {
         quotes,
-        selected,
-        from_date,
-        to_date,
+        selected: selected.map(|u| u.get()),
+        from_date: from_date.to_string(),
+        to_date: to_date.to_string(),
     })
 }
 
 #[instrument]
 async fn drunks(State(db): State<SqlitePool>) -> Result<DrunksTemplate, AppError> {
-    let drunks = get_drunks(db.clone()).await?;
+    let drunks = drunks::get_all(db.clone()).await?;
 
     let last_spill_days: i64 = sqlx::query_scalar!(
         r#"SELECT max(last_spill) AS "last_spill?: chrono::NaiveDateTime" FROM drunk WHERE last_spill IS NOT NULL LIMIT 1;"#

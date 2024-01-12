@@ -6,7 +6,7 @@ use clokwerk::{AsyncScheduler, Job, TimeUnits};
 use serenity::all::{ChannelId, Http};
 use tracing::{error, instrument, trace_span, warn};
 
-use crate::helpers::{post_random_to_channel, post_stonks_to_channel};
+use crate::shared::helpers::{post_random_to_channel, post_stonks_to_channel};
 
 #[instrument]
 pub fn setup_jobs(db: sqlx::SqlitePool, http: Arc<Http>) -> AsyncScheduler<chrono_tz::Tz> {
