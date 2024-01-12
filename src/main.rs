@@ -14,7 +14,11 @@ use sqlx::{migrate::MigrateDatabase, SqlitePool};
 
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::{Protocol, WithExportConfig};
-use opentelemetry_sdk::{trace, Resource};
+use opentelemetry_sdk::{
+    runtime,
+    trace::{self, Sampler},
+    Resource,
+};
 use tracing::{debug, info, instrument, warn};
 use tracing_subscriber::layer::SubscriberExt;
 
@@ -86,8 +90,8 @@ pub struct Config {
     pub app_id: ApplicationId,
     pub domain: String,
     pub addr: String,
-    pub otlp_endpoint: String,
-    pub nr_api_key: String,
+    pub otel_endpoint: String,
+    pub otel_api_key: String,
 }
 
 impl TypeMapKey for Config {
@@ -115,34 +119,33 @@ fn setup_config() -> anyhow::Result<Config> {
     let domain = env::var("WEB_DOMAIN").unwrap_or_else(|_| "0.0.0.0".to_string());
     let addr = format!("{}:{}", domain, port);
 
-    let otlp_endpoint =
-        env::var("OTLP_ENDPOINT").unwrap_or_else(|_| "https://otlp.nr-data.net:4318".to_string());
-
-    let nr_api_key = env::var("NR_API_KEY").unwrap_or_default();
-    if nr_api_key.is_empty() && otlp_endpoint.contains("nr-data.net") {
-        bail!("NR_API_KEY is not set")
-    }
-    warn!("NR_API_KEY is not set");
+    let otel_endpoint = env::var("OTEL_ENDPOINT").unwrap_or_default();
+    let otel_api_key = env::var("OTEL_API_KEY").unwrap_or_default();
 
     Ok(Config {
         token,
         app_id,
         domain,
         addr,
-        otlp_endpoint,
-        nr_api_key,
+        otel_endpoint,
+        otel_api_key,
     })
 }
 
 fn setup_tracing(cfg: Config) -> anyhow::Result<()> {
+    if cfg.otel_endpoint.is_empty() {
+        tracing_subscriber::fmt::init();
+        return Ok(());
+    }
+
     let mut metamap = tonic::metadata::MetadataMap::with_capacity(2);
     metamap.insert("x-host", cfg.domain.parse()?);
-    metamap.insert("api-key", cfg.nr_api_key.parse()?);
+    metamap.insert("api-key", cfg.otel_api_key.parse()?);
 
     let exporter = opentelemetry_otlp::new_exporter()
         .tonic()
         .with_protocol(Protocol::Grpc)
-        .with_endpoint(cfg.otlp_endpoint)
+        .with_endpoint(cfg.otel_endpoint)
         .with_timeout(Duration::from_secs(3))
         .with_metadata(metamap);
 
@@ -150,12 +153,16 @@ fn setup_tracing(cfg: Config) -> anyhow::Result<()> {
         .tracing()
         .with_exporter(exporter)
         .with_trace_config(
-            trace::config().with_resource(Resource::new(vec![KeyValue::new(
-                "service.name",
-                "swiss_army_bot",
-            )])),
+            trace::config()
+                .with_sampler(Sampler::AlwaysOn)
+                .with_max_attributes_per_span(16)
+                .with_max_events_per_span(16)
+                .with_resource(Resource::new(vec![KeyValue::new(
+                    "service.name",
+                    "swiss_army_bot",
+                )])),
         )
-        .install_simple()?;
+        .install_batch(runtime::Tokio)?;
 
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
     let subscriber = tracing_subscriber::Registry::default().with(telemetry);
