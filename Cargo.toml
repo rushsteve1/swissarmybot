@@ -1,6 +1,6 @@
 [package]
 name = "swiss_army_bot"
-version = "1.7.4-nein"
+version = "1.7.5-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 

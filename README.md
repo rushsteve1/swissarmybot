@@ -6,7 +6,6 @@ A Discord bot that does a whole bunch of things that no one needs. Like a Swiss 
 
 ## Features
 
-- [ ] Separate Spills Recording
 - [ ] Quote message interaction
 - [ ] Something else dumb
 

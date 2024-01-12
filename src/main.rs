@@ -55,8 +55,8 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     // Build the Axum server
-    info!("Binding to address `{}`", cfg.addr);
-    let listener = tokio::net::TcpListener::bind(cfg.addr).await?;
+    info!("Binding to address `{}`", cfg.addr());
+    let listener = tokio::net::TcpListener::bind(cfg.addr()).await?;
     let axum_fut = axum::serve(listener, router(db_pool.clone())).into_future();
 
     // Setup the cron jobs to check every 60 seconds
@@ -84,18 +84,24 @@ async fn main() -> anyhow::Result<()> {
     anyhow::bail!("SwissArmyBot exited!")
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Config {
     pub token: String,
     pub app_id: ApplicationId,
     pub domain: String,
-    pub addr: String,
+    pub port: u16,
     pub otel_endpoint: String,
     pub otel_api_key: String,
 }
 
 impl TypeMapKey for Config {
     type Value = Self;
+}
+
+impl Config {
+    pub fn addr(&self) -> String {
+        format!("{}:{}", self.domain, self.port)
+    }
 }
 
 // Get configuration from environment variables
@@ -117,7 +123,6 @@ fn setup_config() -> anyhow::Result<Config> {
     };
 
     let domain = env::var("WEB_DOMAIN").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let addr = format!("{}:{}", domain, port);
 
     let otel_endpoint = env::var("OTEL_ENDPOINT").unwrap_or_default();
     let otel_api_key = env::var("OTEL_API_KEY").unwrap_or_default();
@@ -126,7 +131,7 @@ fn setup_config() -> anyhow::Result<Config> {
         token,
         app_id,
         domain,
-        addr,
+        port,
         otel_endpoint,
         otel_api_key,
     })
