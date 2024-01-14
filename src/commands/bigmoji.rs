@@ -6,41 +6,41 @@ use crate::shared::bigmoji;
 use crate::shared::helpers::get_cmd;
 
 pub async fn add(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
-    let cmd = get_cmd(interaction)?;
+	let cmd = get_cmd(interaction)?;
 
-    let mut name = cmd.name.replace(':', "").to_lowercase();
-    name.retain(|c| !c.is_whitespace());
+	let mut name = cmd.name.replace(':', "").to_lowercase();
+	name.retain(|c| !c.is_whitespace());
 
-    if name.len() < 3 {
-        return Ok("BigMoji name too short".to_string());
-    }
+	if name.len() < 3 {
+		return Ok("BigMoji name too short".to_string());
+	}
 
-    let text = cmd.value.as_str().ok_or(anyhow!("bigmoji text"))?;
+	let text = cmd.value.as_str().ok_or(anyhow!("bigmoji text"))?;
 
-    bigmoji::add(db, name.as_str(), text).await?;
+	bigmoji::add(db, name.as_str(), text).await?;
 
-    Ok(format!("BigMoji `:{}:` added", name))
+	Ok(format!("BigMoji `:{}:` added", name))
 }
 
 pub async fn remove(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
-    let cmd = get_cmd(interaction)?;
-    let mut name = cmd.name.replace(':', "").to_lowercase();
-    name.retain(|c| !c.is_whitespace());
+	let cmd = get_cmd(interaction)?;
+	let mut name = cmd.name.replace(':', "").to_lowercase();
+	name.retain(|c| !c.is_whitespace());
 
-    bigmoji::remove(db, name.as_str()).await?;
+	bigmoji::remove(db, name.as_str()).await?;
 
-    Ok(format!("Deleted BigMoji `:{}:`", name))
+	Ok(format!("Deleted BigMoji `:{}:`", name))
 }
 
 pub async fn get(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
-    let cmd = get_cmd(interaction)?;
+	let cmd = get_cmd(interaction)?;
 
-    let mut name = cmd.name.replace(':', "").to_lowercase();
-    name.retain(|c| !c.is_whitespace());
+	let mut name = cmd.name.replace(':', "").to_lowercase();
+	name.retain(|c| !c.is_whitespace());
 
-    let moji = bigmoji::get_one(db, name.as_str()).await?;
+	let moji = bigmoji::get_one(db, name.as_str()).await?;
 
-    Ok(moji
-        .map(|m| m.text)
-        .unwrap_or(format!("BigMoji `:{}:` does not exist", name)))
+	Ok(moji
+		.map(|m| m.text)
+		.unwrap_or(format!("BigMoji `:{}:` does not exist", name)))
 }
