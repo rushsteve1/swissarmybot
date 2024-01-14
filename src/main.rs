@@ -59,8 +59,9 @@ async fn main() -> anyhow::Result<()> {
 		.with_context(|| "serenity client setup")?;
 
 	// Build the Axum server
-	info!("Binding to address `{}`", cfg.addr());
-	let listener = tokio::net::TcpListener::bind(cfg.addr())
+	let addr = format!("0.0.0.0:{}", cfg.port);
+	info!("Binding to address `{}`", addr);
+	let listener = tokio::net::TcpListener::bind(addr)
 		.await
 		.with_context(|| "TCP listener setup")?;
 	let axum_fut = axum::serve(listener, router(db_pool.clone())).into_future();
@@ -102,12 +103,6 @@ pub struct Config {
 
 impl TypeMapKey for Config {
 	type Value = Self;
-}
-
-impl Config {
-	pub fn addr(&self) -> String {
-		format!("{}:{}", self.domain, self.port)
-	}
 }
 
 // Get configuration from environment variables

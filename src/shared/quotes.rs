@@ -121,8 +121,8 @@ pub async fn get_random(db: SqlitePool) -> anyhow::Result<Quote> {
 #[instrument]
 pub fn list_url(cfg: crate::Config, user_id: Option<UserId>) -> String {
 	user_id
-		.map(|u| format!("http://{}/quotes?user={}", cfg.addr(), u))
-		.unwrap_or(format!("http://{}/quotes", cfg.addr()))
+		.map(|u| format!("http://{}/quotes?user={}", cfg.domain, u))
+		.unwrap_or(format!("http://{}/quotes", cfg.domain))
 }
 
 #[cfg(test)]

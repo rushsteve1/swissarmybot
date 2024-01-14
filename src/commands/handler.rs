@@ -106,7 +106,7 @@ async fn handle_bigmoji_command(ctx: Ctx, interaction: &Interaction) -> anyhow::
 		"add" => super::bigmoji::add(db, interaction).await,
 		"remove" => super::bigmoji::remove(db, interaction).await,
 		"get" => super::bigmoji::get(db, interaction).await,
-		"list" => Ok(format!("http://{}/bigmoji", cfg.addr())),
+		"list" => Ok(format!("http://{}/bigmoji", cfg.domain)),
 		_ => Err(anyhow::anyhow!("unknown bigmoji command")),
 	}
 }
