@@ -41,13 +41,13 @@ async fn main() -> anyhow::Result<()> {
 	// Before we do anything set Tracing to use stdout
 	tracing_subscriber::fmt::init();
 
-	let cfg = setup_config()?;
+	let cfg = setup_config().with_context(|| "config setup")?;
 
-	setup_tracing(cfg.clone())?;
+	setup_tracing(cfg.clone()).with_context(|| "tracing setup")?;
 
 	info!("Starting up SwissArmyBot {}...", VERSION);
 
-	let db_pool = setup_db().await?;
+	let db_pool = setup_db().await.with_context(|| "database setup")?;
 
 	// Build the Serenity client
 	let mut client = Client::builder(cfg.token.clone(), GatewayIntents::default())
@@ -55,11 +55,14 @@ async fn main() -> anyhow::Result<()> {
 		.type_map_insert::<Config>(cfg.clone())
 		.event_handler(Handler)
 		.application_id(cfg.app_id)
-		.await?;
+		.await
+		.with_context(|| "serenity client setup")?;
 
 	// Build the Axum server
 	info!("Binding to address `{}`", cfg.addr());
-	let listener = tokio::net::TcpListener::bind(cfg.addr()).await?;
+	let listener = tokio::net::TcpListener::bind(cfg.addr())
+		.await
+		.with_context(|| "TCP listener setup")?;
 	let axum_fut = axum::serve(listener, router(db_pool.clone())).into_future();
 
 	// Setup the cron jobs to check every 60 seconds
@@ -174,7 +177,8 @@ fn setup_tracing(cfg: Config) -> anyhow::Result<()> {
 					"swiss_army_bot",
 				)])),
 		)
-		.install_batch(runtime::Tokio)?;
+		.install_batch(runtime::Tokio)
+		.with_context(|| "tracer setup")?;
 
 	let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 	let subscriber = tracing_subscriber::Registry::default().with(telemetry);
@@ -197,7 +201,9 @@ async fn setup_db() -> anyhow::Result<SqlitePool> {
 	if let Err(ref e) = path_e {
 		match e.kind() {
 			std::io::ErrorKind::NotFound => {
-				sqlx::Sqlite::create_database(&db_path).await?;
+				sqlx::Sqlite::create_database(&db_path)
+					.await
+					.with_context(|| "database creation")?;
 			}
 			_ => {
 				path_e?;
