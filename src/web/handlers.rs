@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use anyhow::Context;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -72,12 +73,14 @@ async fn quotes(
 ) -> Result<QuotesTemplate, AppError> {
 	let from_date = query
 		.from_date
-		.map(|d| d.parse().unwrap_or_default())
+		.ok_or(anyhow::anyhow!("no from_date"))
+		.and_then(|d| d.parse().with_context(|| "parsing from_date"))
 		.unwrap_or_default();
 	let to_date = query
 		.to_date
-		.map(|d| d.parse().unwrap_or_default())
-		.unwrap_or_default();
+		.ok_or(anyhow::anyhow!("no to_date"))
+		.and_then(|d| d.parse().with_context(|| "parsing to_date"))
+		.unwrap_or_else(|_| chrono::Utc::now().naive_utc());
 
 	let selected = query.user.map(UserId::new);
 	let quotes = if let Some(user_id) = selected {
