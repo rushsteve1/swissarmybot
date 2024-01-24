@@ -8,13 +8,14 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 use chrono::Local;
+use maud::Markup;
 use serde::Deserializer;
 use serde::{de, Deserialize};
 use serenity::all::UserId;
 use sqlx::SqlitePool;
 use tracing::instrument;
 
-use super::templates::*;
+use super::templates;
 
 use crate::shared::{bigmoji, drunks, quotes};
 use crate::{GIT_VERSION, VERSION};
@@ -52,25 +53,22 @@ pub fn router(db: SqlitePool) -> Router {
 }
 
 #[instrument]
-async fn index() -> IndexTemplate {
-	IndexTemplate {
-		version: VERSION,
-		git_version: GIT_VERSION,
-	}
+async fn index() -> Markup {
+	templates::base(templates::index(VERSION, GIT_VERSION))
 }
 
 #[instrument]
-async fn bigmoji(State(db): State<SqlitePool>) -> Result<BigMojiTemplate, AppError> {
-	Ok(BigMojiTemplate {
-		bigmoji: bigmoji::get_all(db).await?,
-	})
+async fn bigmoji(State(db): State<SqlitePool>) -> Result<Markup, AppError> {
+	Ok(templates::base(templates::bigmoji(
+		bigmoji::get_all(db).await?,
+	)))
 }
 
 #[instrument]
 async fn quotes(
 	State(db): State<SqlitePool>,
 	Query(query): Query<QuotesQuery>,
-) -> Result<QuotesTemplate, AppError> {
+) -> Result<Markup, AppError> {
 	let from_date = query
 		.from_date
 		.ok_or(anyhow::anyhow!("no from_date"))
@@ -89,16 +87,16 @@ async fn quotes(
 		quotes::get_all(db, from_date, to_date).await?
 	};
 
-	Ok(QuotesTemplate {
+	Ok(templates::base(templates::quotes(
 		quotes,
-		selected: selected.map(|u| u.get()),
-		from_date: from_date.to_string(),
-		to_date: to_date.to_string(),
-	})
+		selected.map(|u| u.get()),
+		from_date.to_string(),
+		to_date.to_string(),
+	)))
 }
 
 #[instrument]
-async fn drunks(State(db): State<SqlitePool>) -> Result<DrunksTemplate, AppError> {
+async fn drunks(State(db): State<SqlitePool>) -> Result<Markup, AppError> {
 	let drunks = drunks::get_all(db.clone()).await?;
 
 	let last_spill_days: i64 = sqlx::query_scalar!(
@@ -109,10 +107,7 @@ async fn drunks(State(db): State<SqlitePool>) -> Result<DrunksTemplate, AppError
     .map(|t| (Local::now() - t.and_local_timezone(Local).unwrap()).num_days())
     .unwrap_or_default();
 
-	Ok(DrunksTemplate {
-		drunks,
-		last_spill_days,
-	})
+	Ok(templates::base(templates::drunks(drunks, last_spill_days)))
 }
 
 #[instrument]

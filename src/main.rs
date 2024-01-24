@@ -49,15 +49,6 @@ async fn main() -> anyhow::Result<()> {
 
 	let db_pool = setup_db().await.with_context(|| "database setup")?;
 
-	// Build the Serenity client
-	let mut client = Client::builder(cfg.token.clone(), GatewayIntents::default())
-		.type_map_insert::<DB>(db_pool.clone())
-		.type_map_insert::<Config>(cfg.clone())
-		.event_handler(Handler)
-		.application_id(cfg.app_id)
-		.await
-		.with_context(|| "serenity client setup")?;
-
 	// Build the Axum server
 	let addr = format!("0.0.0.0:{}", cfg.port);
 	info!("Binding to address `{}`", addr);
@@ -65,6 +56,20 @@ async fn main() -> anyhow::Result<()> {
 		.await
 		.with_context(|| "TCP listener setup")?;
 	let axum_fut = axum::serve(listener, router(db_pool.clone())).into_future();
+
+	if cfg.only_webserver {
+		info!("Webserver only mode enabled...");
+		return axum_fut.await.with_context(|| "axum server");
+	}
+
+	// Build the Serenity client
+	let mut client = Client::builder(cfg.token.clone(), GatewayIntents::default())
+		.type_map_insert::<DB>(db_pool.clone())
+		.type_map_insert::<Config>(cfg.clone())
+		.event_handler(Handler)
+		.application_id(cfg.app_id.unwrap_or_default())
+		.await
+		.with_context(|| "serenity client setup")?;
 
 	// Setup the cron jobs to check every 60 seconds
 	let mut scheduler = setup_jobs(db_pool, client.http.clone());
@@ -94,11 +99,12 @@ async fn main() -> anyhow::Result<()> {
 #[derive(Clone, Debug, Default)]
 pub struct Config {
 	pub token: String,
-	pub app_id: ApplicationId,
+	pub app_id: Option<ApplicationId>,
 	pub domain: String,
 	pub port: u16,
 	pub otel_endpoint: String,
 	pub otel_api_key: String,
+	pub only_webserver: bool,
 }
 
 impl TypeMapKey for Config {
@@ -118,12 +124,13 @@ fn setup_config() -> anyhow::Result<Config> {
 	};
 	info!("Using port: {}", port);
 
-	let Ok(app_id) = env::var("APPLICATION_ID") else {
-		bail!("APPLICATION_ID is not set");
-	};
-	let Ok(app_id) = app_id.parse::<ApplicationId>() else {
-		bail!("APPLICATION_ID is invalid");
-	};
+	let app_id = env::var("APPLICATION_ID")
+		.with_context(|| "APPLICATION_ID env variable")
+		.and_then(|id| {
+			id.parse::<ApplicationId>()
+				.with_context(|| "APPLICATION_ID parse")
+		})
+		.ok();
 	info!("Application ID set");
 
 	let domain = env::var("WEB_DOMAIN").unwrap_or_else(|_| "0.0.0.0".to_string());
@@ -133,6 +140,8 @@ fn setup_config() -> anyhow::Result<Config> {
 	info!("Using OTEL endpoint: {}", otel_endpoint);
 	let otel_api_key = env::var("OTEL_API_KEY").unwrap_or_default();
 
+	let only_webserver = env::var("ONLY_WEBSERVER").is_ok();
+
 	Ok(Config {
 		token,
 		app_id,
@@ -140,6 +149,7 @@ fn setup_config() -> anyhow::Result<Config> {
 		port,
 		otel_endpoint,
 		otel_api_key,
+		only_webserver,
 	})
 }
 

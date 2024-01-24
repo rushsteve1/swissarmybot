@@ -7,12 +7,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "^1.0"
-askama_axum = "*"
+anyhow = "*"
 axum = "^0.7"
 chrono = "*"
 chrono-tz = "*"
 clokwerk = "^0.4"
+maud = { version = "^0.26", features = ["axum"] }
 opentelemetry = "*"
 opentelemetry-otlp = { version = "^0.14", features = ["tls", "tls-roots"] }
 opentelemetry_sdk = { version = "*", features = ["rt-tokio"] }
@@ -24,11 +24,6 @@ tonic = "^0.9"
 tracing = "*"
 tracing-opentelemetry = "^0.22"
 tracing-subscriber = "*"
-
-[dependencies.askama]
-version = "^0.12"
-default_features = false
-features = [ "with-axum" ]
 
 [dependencies.reqwest]
 version = "*"
