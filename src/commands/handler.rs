@@ -1,14 +1,12 @@
-use anyhow::Context;
 use serenity::all::{
 	Context as Ctx, CreateInteractionResponse, CreateInteractionResponseMessage, EventHandler,
-	Interaction, Mentionable, Message, Reaction, ReactionType, Ready,
+	Interaction, Mentionable, Reaction, ReactionType, Ready,
 };
 use serenity::async_trait;
 use tracing::{error, info, instrument};
 
 use super::definition::interactions_definition;
-use crate::shared::bigmoji;
-use crate::shared::helpers::{get_cfg, get_cmd, get_db, get_inter, THE_CAPTAIN};
+use crate::shared::helpers::{get_cmd, get_db, get_inter, THE_CAPTAIN};
 
 const DOWN: &str = "⬇️";
 const DOWNVOTE_LIMIT: u8 = 5;
@@ -38,7 +36,6 @@ impl EventHandler for Handler {
 
 		let res = match inter.data.name.as_str() {
 			"quote" => handle_quote_command(ctx.clone(), &interaction).await,
-			"bigmoji" => handle_bigmoji_command(ctx.clone(), &interaction).await,
 			"drunk" => handle_drunk_command(ctx.clone(), &interaction).await,
 			"spill" => handle_spill_command(ctx.clone(), &interaction).await,
 			_ => Err(anyhow::anyhow!("unknown command")),
@@ -64,18 +61,6 @@ impl EventHandler for Handler {
 	}
 
 	#[instrument]
-	async fn message(&self, ctx: Ctx, message: Message) {
-		// Don't bother with bot messages (including our own)
-		if message.author.bot {
-			return;
-		}
-
-		send_bigmoji(ctx, &message)
-			.await
-			.unwrap_or_else(|e| error!(error = %e, "could not send bigmoji"));
-	}
-
-	#[instrument]
 	async fn reaction_add(&self, ctx: Ctx, reaction: Reaction) {
 		handle_downvote(ctx, reaction)
 			.await
@@ -93,21 +78,6 @@ async fn handle_quote_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Re
 		"get" => super::quotes::get(ctx, interaction).await,
 		"list" => super::quotes::list(ctx, interaction).await,
 		_ => Err(anyhow::anyhow!("unknown quote command")),
-	}
-}
-
-#[instrument]
-async fn handle_bigmoji_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
-	let db = get_db(ctx.clone()).await?;
-	let cfg = get_cfg(ctx).await?;
-	let cmd = get_cmd(interaction)?;
-
-	match cmd.name.as_str() {
-		"add" => super::bigmoji::add(db, interaction).await,
-		"remove" => super::bigmoji::remove(db, interaction).await,
-		"get" => super::bigmoji::get(db, interaction).await,
-		"list" => Ok(format!("http://{}/bigmoji", cfg.domain)),
-		_ => Err(anyhow::anyhow!("unknown bigmoji command")),
 	}
 }
 
@@ -163,31 +133,4 @@ async fn handle_spill_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Re
         author.mention(),
         THE_CAPTAIN.mention()
     ))
-}
-
-#[instrument]
-async fn send_bigmoji(ctx: Ctx, message: &Message) -> anyhow::Result<()> {
-	let db = get_db(ctx.clone()).await?;
-	let Ok(re) = regex::Regex::new(r":(\S+):") else {
-		error!("could not compile regex");
-		anyhow::bail!("could not compile regex")
-	};
-
-	for mat in re.captures_iter(&message.content) {
-		let term = mat
-			.get(1)
-			.ok_or_else(|| anyhow::anyhow!("did not match"))?
-			.as_str()
-			.to_lowercase();
-		let moji = bigmoji::get_one(db.clone(), term.as_str()).await?;
-
-		if let Some(moji) = moji {
-			message
-				.reply(ctx.clone(), moji.text)
-				.await
-				.with_context(|| "responding to BigMoji")?;
-		}
-	}
-
-	Ok(())
 }

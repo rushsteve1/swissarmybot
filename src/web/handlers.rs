@@ -17,7 +17,7 @@ use tracing::instrument;
 
 use super::templates;
 
-use crate::shared::{bigmoji, drunks, quotes};
+use crate::shared::{drunks, quotes};
 use crate::{GIT_VERSION, VERSION};
 
 #[derive(Debug, Deserialize)]
@@ -45,7 +45,6 @@ where
 pub fn router(db: SqlitePool) -> Router {
 	Router::new()
 		.route("/", get(index))
-		.route("/bigmoji", get(bigmoji))
 		.route("/drunks", get(drunks))
 		.route("/quotes", get(quotes))
 		.fallback(not_found)
@@ -55,13 +54,6 @@ pub fn router(db: SqlitePool) -> Router {
 #[instrument]
 async fn index() -> Markup {
 	templates::base(&templates::index(VERSION, GIT_VERSION))
-}
-
-#[instrument]
-async fn bigmoji(State(db): State<SqlitePool>) -> Result<Markup, AppError> {
-	Ok(templates::base(&templates::bigmoji(
-		bigmoji::get_all(db).await?,
-	)))
 }
 
 #[instrument]
@@ -97,7 +89,8 @@ async fn quotes(
 
 #[instrument]
 async fn drunks(State(db): State<SqlitePool>) -> Result<Markup, AppError> {
-	let drunks = drunks::get_all(db.clone()).await?;
+	let mut drunks = drunks::get_all(db.clone()).await?;
+	drunks.sort_by_key(drunks::Drunk::score);
 
 	let last_spill_days: i64 = sqlx::query_scalar!(
         r#"SELECT max(last_spill) AS "last_spill?: chrono::NaiveDateTime" FROM drunk WHERE last_spill IS NOT NULL LIMIT 1;"#

@@ -25,15 +25,15 @@ pub async fn post_random_to_channel(
 	body: String,
 ) -> anyhow::Result<Message> {
 	let quote = quotes::get_random(db).await?;
-	let user_id = to_user_id(quote.user_id)?;
-	let author_id = to_user_id(quote.author_id)?;
+	let user_id = quote.user_id;
+	let author_id = quote.author_id;
 
 	let txt = format!(
 		"{}\n#{} by {}, added by {} on <t:{}:f>\n\n>>> {}",
 		body,
 		quote.id,
-		user_id.mention(),
-		author_id.mention(),
+		user_id.parse::<UserId>()?.mention(),
+		author_id.parse::<UserId>()?.mention(),
 		quote.inserted_at.timestamp(),
 		quote.text
 	);
@@ -103,8 +103,4 @@ pub async fn get_cfg(ctx: Ctx) -> anyhow::Result<crate::Config> {
 		.get::<crate::Config>()
 		.ok_or_else(|| anyhow::anyhow!("could not get config from context"))
 		.map(crate::Config::clone)
-}
-
-pub fn to_user_id(id: i64) -> anyhow::Result<UserId> {
-	Ok(UserId::new(id.try_into()?))
 }

@@ -7,7 +7,7 @@ use tracing::{error, instrument};
 #[derive(sqlx::FromRow)]
 pub struct Drunk {
 	pub id: i64,
-	pub user_id: i64,
+	pub user_id: String,
 	pub user_name: String,
 	pub beer: i64,
 	pub wine: i64,
@@ -15,10 +15,15 @@ pub struct Drunk {
 	pub cocktails: i64,
 	pub derby: i64,
 	pub water: i64,
-	pub updated_at: NaiveDateTime,
-	pub score: i64,
 	pub last_drink: Option<String>,
 	pub last_spill: Option<NaiveDateTime>,
+	pub updated_at: NaiveDateTime,
+}
+
+impl Drunk {
+	pub const fn score(&self) -> i64 {
+		self.beer + (self.wine * 2) + (self.shots * 2) + (self.cocktails * 2) + (self.derby * 3)
+	}
 }
 
 impl Drunk {
@@ -100,7 +105,7 @@ pub async fn update(
 
 #[instrument]
 pub async fn get_all(db: SqlitePool) -> anyhow::Result<Vec<Drunk>> {
-	sqlx::query_as!(Drunk, "SELECT * FROM drunk ORDER BY score DESC;")
+	sqlx::query_as!(Drunk, "SELECT * FROM drunk;")
 		.fetch_all(&db)
 		.await
 		.with_context(|| "getting drunks")

@@ -92,67 +92,6 @@ pub async fn interactions_definition(ctx: Ctx) -> anyhow::Result<Vec<Command>> {
 			)),
 		);
 
-	let _bigmoji_cmd = CreateCommand::new("bigmoji")
-		.description("Manage BigMoji (big emoji)")
-		.add_option(
-			CreateCommandOption::new(
-				CommandOptionType::SubCommand,
-				"add",
-				"Add a BigMoji to the database",
-			)
-			.add_sub_option(
-				CreateCommandOption::new(
-					CommandOptionType::String,
-					"name",
-					"Name of the BigMoji (without colons)",
-				)
-				.required(true),
-			)
-			.add_sub_option(
-				CreateCommandOption::new(
-					CommandOptionType::String,
-					"text",
-					"What should it say? (links OK)",
-				)
-				.required(true),
-			),
-		)
-		.add_option(
-			CreateCommandOption::new(
-				CommandOptionType::SubCommand,
-				"remove",
-				"Remove a BigMoji from the database",
-			)
-			.add_sub_option(
-				CreateCommandOption::new(
-					CommandOptionType::String,
-					"name",
-					"Name of the BigMoji (without colons)",
-				)
-				.required(true),
-			),
-		)
-		.add_option(
-			CreateCommandOption::new(
-				CommandOptionType::SubCommand,
-				"get",
-				"Get a BigMoji from the database",
-			)
-			.add_sub_option(
-				CreateCommandOption::new(
-					CommandOptionType::String,
-					"name",
-					"Name of the BigMoji (without colons)",
-				)
-				.required(true),
-			),
-		)
-		.add_option(CreateCommandOption::new(
-			CommandOptionType::SubCommand,
-			"list",
-			"List all the BigMoji",
-		));
-
 	let drink_name_subcmd =
 		CreateCommandOption::new(CommandOptionType::String, "name", "Be more specific");
 

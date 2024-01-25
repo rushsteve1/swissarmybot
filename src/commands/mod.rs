@@ -1,4 +1,3 @@
-mod bigmoji;
 mod definition;
 mod drunks;
 mod handler;

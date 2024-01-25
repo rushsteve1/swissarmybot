@@ -4,14 +4,12 @@ use serenity::all::{Mentionable, UserId};
 use sqlx::SqlitePool;
 use tracing::instrument;
 
-use crate::shared::helpers::to_user_id;
-
 #[derive(sqlx::FromRow)]
 pub struct Quote {
 	pub id: i64,
-	pub user_id: i64,
+	pub user_id: String,
 	pub user_name: String,
-	pub author_id: i64,
+	pub author_id: String,
 	pub author_name: String,
 	pub text: String,
 	pub inserted_at: NaiveDateTime,
@@ -48,11 +46,10 @@ pub async fn remove(db: SqlitePool, id: i64) -> anyhow::Result<String> {
 	let row = sqlx::query_scalar!("DELETE FROM quotes WHERE id = ? RETURNING user_id;", id)
 		.fetch_optional(&db)
 		.await
-		.with_context(|| "error deleting quote")?
-		.and_then(|r| r.try_into().ok());
+		.with_context(|| "error deleting quote")?;
 
 	Ok(row
-		.map(UserId::new)
+		.map(|r| r.parse::<UserId>().unwrap_or_default())
 		.map(|user_id| format!("Quote {} removed by {}", id, user_id.mention()))
 		.unwrap_or(format!("Quote {id} does not exist")))
 }
@@ -69,7 +66,7 @@ pub async fn get_one(db: SqlitePool, id: i64) -> anyhow::Result<String> {
 			format!(
 				"Quote {} by {}\n>>> {}",
 				id,
-				to_user_id(q.user_id).unwrap_or_default().mention(),
+				q.user_id.parse::<UserId>().unwrap_or_default().mention(),
 				q.text
 			)
 		})

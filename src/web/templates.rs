@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use maud::{html, Markup, DOCTYPE};
 
-use crate::shared::{BigMoji, Drunk, Quote};
+use crate::shared::{Drunk, Quote};
 
 fn imgs_map() -> HashMap<&'static str, &'static str> {
 	vec![
@@ -103,40 +103,7 @@ pub fn index(version: &'static str, git_version: Option<&'static str>) -> Markup
 	}
 }
 
-pub fn bigmoji(bigmoji: Vec<BigMoji>) -> Markup {
-	html! {
-		h1 { "BigMoji List" }
-
-		div style="display: flex; justify-content: space-between;" {
-			div { "There are " (bigmoji.len()) " BigMoji total" }
-			div { kbd { "Ctrl-F" } " to search" }
-		}
-
-		table {
-			thead {
-				th { "Name" }
-				th { "Text" }
-				th { "Added at" }
-			}
-			tbody {
-				@for moji in bigmoji {
-					tr {
-						td { code { (moji.name) } }
-						td { (linkify(&moji.text)) }
-						td nowrap { (moji.inserted_at) }
-					}
-				}
-			}
-		}
-	}
-}
-
-pub fn quotes(
-	quotes: Vec<Quote>,
-	selected: Option<u64>,
-	from_date: &str,
-	to_date: &str,
-) -> Markup {
+pub fn quotes(quotes: Vec<Quote>, selected: Option<u64>, from_date: &str, to_date: &str) -> Markup {
 	html! {
 		h1 { "Quote List" }
 
@@ -214,7 +181,7 @@ pub fn drunks(drunks: Vec<Drunk>, last_spill_days: i64) -> Markup {
 				@for drunk in drunks {
 					tr {
 						td nowrap { (drunk.user_name) }
-						td { strong { (drunk.score) } }
+						td { strong { (drunk.score()) } }
 						td { (drunk.beer) }
 						td { (drunk.wine) }
 						td { (drunk.shots) }
@@ -228,14 +195,5 @@ pub fn drunks(drunks: Vec<Drunk>, last_spill_days: i64) -> Markup {
 				}
 			}
 		}
-	}
-}
-
-fn linkify(text: &str) -> String {
-	let text = text.trim();
-	if text.starts_with("http") && !text.contains([' ', '\n']) {
-		format!("<a href=\"{text}\" target=\"_blank\">{text}</a>")
-	} else {
-		text.to_string()
 	}
 }
