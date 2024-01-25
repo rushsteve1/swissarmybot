@@ -11,8 +11,9 @@ A Discord bot that does a whole bunch of things that no one needs. Like a Swiss 
 
 ## Improvements
 
-- [ ] Upgrade to Poise framework
-- [ ] Tracing Opentelemetry
+- [x] Switch from Askama to Maud
+- [x] Upgrade to Poise framework
+- [x] Tracing Opentelemetry
 - [ ] Documentation
 - [ ] Tests
 - [ ] Maybe replace reqwest with isahc?

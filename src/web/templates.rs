@@ -24,7 +24,6 @@ pub fn header() -> Markup {
 					li { a href="/" { h3 style="margin: 0" { "SwissArmyBot" } } }
 				}
 				ul {
-					li { a href="/bigmoji" { "BigMoji" } }
 					li { a href="/quotes" { "Quotes" } }
 					li { a href="/drunks" { "Drunks" } }
 				}

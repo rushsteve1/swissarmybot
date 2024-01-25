@@ -1,29 +1,66 @@
-use serenity::all::{CommandDataOptionValue, Interaction, Mentionable};
-use tracing::error;
+use poise::serenity_prelude::{Mentionable, UserId};
+use tracing::instrument;
 
-use crate::shared::helpers::{get_cmd, get_inter};
+use crate::Ctx;
 
-pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
-	let inter = get_inter(interaction)?;
-	let cmd = get_cmd(interaction)?;
+/// Record your tipsy times
+#[poise::command(slash_command)]
+#[instrument]
+pub async fn drunk(
+	ctx: Ctx<'_>,
+	#[description = "What kinda drink ya havin?"]
+	#[autocomplete = "autocomplete_drink_type"]
+	drink_type: String,
+	#[description = "Be more specific"] drink_name: Option<String>,
+) -> anyhow::Result<()> {
+	let (author_id, type_str) = crate::shared::drunks::update(
+		&ctx.data().db,
+		ctx.author().id,
+		&ctx.author().name,
+		&drink_type,
+		drink_name.as_deref(),
+	)
+	.await?;
 
-	let author = inter
-		.member
-		.as_ref()
-		.ok_or_else(|| anyhow::anyhow!("interaction had no author"))?;
-	let author_id = author.user.id;
-	let author_name = author.user.name.to_string();
+	ctx.say(format!("{} had a {}", author_id.mention(), type_str))
+		.await?;
 
-	let drink_type = cmd.name.as_str();
-	let CommandDataOptionValue::SubCommand(subcmds) = cmd.value.clone() else {
-		error!("command value was not a subcommand");
-		return Err(anyhow::anyhow!("command value was not a subcommand"));
-	};
-	let drink_name = subcmds.first().and_then(|d| d.value.as_str());
+	Ok(())
+}
 
-	let (author_id, type_str) =
-		crate::shared::drunks::update(db, author_id, author_name.as_str(), drink_type, drink_name)
-			.await?;
+const THE_CAPTAIN: UserId = UserId::new(115_178_518_391_947_265);
 
-	Ok(format!("{} had a {}", author_id.mention(), type_str))
+/// Report that a Spill has occured
+#[poise::command(slash_command)]
+#[instrument]
+pub async fn spill(ctx: Ctx<'_>) -> anyhow::Result<()> {
+	let user_id = ctx.author().id.to_string();
+
+	sqlx::query!(
+		"UPDATE drunk SET last_spill = CURRENT_TIMESTAMP WHERE user_id = ?;",
+		user_id,
+	)
+	.execute(&ctx.data().db)
+	.await?;
+
+	ctx.say(format!(
+        "# SPILL ALERT\n{} **HAS SPILLED**\n**INFORMING THE COMMANDING OFFICER** {}\n\nThis incident has been recorded.",
+        ctx.author().mention(),
+        THE_CAPTAIN.mention()
+    )).await?;
+
+	Ok(())
+}
+
+const DRINK_TYPES: &[&str] = &["beer", "wine", "shot", "cocktail", "derby", "water"];
+
+#[allow(clippy::unused_async)]
+async fn autocomplete_drink_type<'a>(
+	_ctx: Ctx<'_>,
+	partial: &'a str,
+) -> impl Iterator<Item = String> + 'a {
+	DRINK_TYPES
+		.iter()
+		.filter(move |t| t.starts_with(partial))
+		.map(ToString::to_string)
 }

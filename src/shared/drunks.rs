@@ -1,8 +1,8 @@
 use anyhow::Context;
 use chrono::NaiveDateTime;
-use serenity::all::UserId;
+use poise::serenity_prelude::UserId;
 use sqlx::SqlitePool;
-use tracing::{error, instrument};
+use tracing::instrument;
 
 #[derive(sqlx::FromRow)]
 pub struct Drunk {
@@ -34,7 +34,7 @@ impl Drunk {
 
 #[instrument]
 pub async fn update(
-	db: SqlitePool,
+	db: &SqlitePool,
 	author_id: UserId,
 	author_name: &str,
 	drink_type: &str,
@@ -42,49 +42,57 @@ pub async fn update(
 ) -> anyhow::Result<(UserId, String)> {
 	let author_id_s = author_id.to_string();
 
+	let tx = db.begin().await?;
+
 	sqlx::query!(
 		"INSERT INTO drunk (user_id, user_name) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING;",
 		author_id_s,
 		author_name
 	)
-	.execute(&db)
+	.execute(db)
 	.await
 	.with_context(|| "inserting drunk")?;
 
+	sqlx::query!(
+		"UPDATE drunk SET updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
+		author_id_s
+	)
+	.execute(db)
+	.await
+	.with_context(|| "update drunk timestamp")?;
+
 	// Repetitive, but that's the price of compile-time SQL validation
-	match drink_type {
-            "beer" => sqlx::query!(
-                "UPDATE drunk SET beer = beer + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
-                author_id_s
-            ),
-            "wine" => sqlx::query!(
-                "UPDATE drunk SET wine = wine + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
-                author_id_s
-            ),
-            "shot" => sqlx::query!(
-                "UPDATE drunk SET shots = shots + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
-                author_id_s
-            ),
-            "cocktail" => sqlx::query!(
-                "UPDATE drunk SET cocktails = cocktails + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
-                author_id_s
-            ),
-            "derby" => sqlx::query!(
-                "UPDATE drunk SET derby = derby + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
-                author_id_s
-            ),
-            "water" => sqlx::query!(
-                "UPDATE drunk SET water = water + 1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?;",
-                author_id_s
-            ),
-            _ => {
-                error!("unknown drink type");
-                return Err(anyhow::anyhow!("unknown drink type"));
-            },
-        }
-        .execute(&db)
-        .await
-        .with_context(|| "updating drunk")?;
+	let dr = match drink_type {
+		"beer" => Some(sqlx::query!(
+			"UPDATE drunk SET beer = beer + 1 WHERE user_id = ?;",
+			author_id_s
+		)),
+		"wine" => Some(sqlx::query!(
+			"UPDATE drunk SET wine = wine + 1 WHERE user_id = ?;",
+			author_id_s
+		)),
+		"shot" => Some(sqlx::query!(
+			"UPDATE drunk SET shots = shots + 1 WHERE user_id = ?;",
+			author_id_s
+		)),
+		"cocktail" => Some(sqlx::query!(
+			"UPDATE drunk SET cocktails = cocktails + 1 WHERE user_id = ?;",
+			author_id_s
+		)),
+		"derby" => Some(sqlx::query!(
+			"UPDATE drunk SET derby = derby + 1 WHERE user_id = ?;",
+			author_id_s
+		)),
+		"water" => Some(sqlx::query!(
+			"UPDATE drunk SET water = water + 1 WHERE user_id = ?;",
+			author_id_s
+		)),
+		_ => None,
+	};
+
+	if let Some(dq) = dr {
+		dq.execute(db).await.with_context(|| "updating drunk")?;
+	}
 
 	let type_str = drink_name.map_or_else(
 		|| drink_type.to_string(),
@@ -96,9 +104,11 @@ pub async fn update(
 		type_str,
 		author_id_s
 	)
-	.execute(&db)
+	.execute(db)
 	.await
 	.with_context(|| "updating last_drink")?;
+
+	tx.commit().await?;
 
 	Ok((author_id, type_str))
 }

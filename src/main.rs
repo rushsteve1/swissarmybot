@@ -1,8 +1,7 @@
 use std::{env, future::IntoFuture, time::Duration};
 
 use anyhow::{bail, Context};
-use serenity::all::ApplicationId;
-use serenity::prelude::*;
+use poise::serenity_prelude as serenity;
 use sqlx::{migrate::MigrateDatabase, SqlitePool};
 
 use opentelemetry::KeyValue;
@@ -20,13 +19,21 @@ mod jobs;
 mod shared;
 mod web;
 
-use commands::Handler;
 use jobs::setup_jobs;
 use web::router;
+
+use crate::commands::events::handler;
 
 // Get version and git info from environment variables during compile
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
 pub const GIT_VERSION: Option<&'static str> = std::option_env!("GIT_VERSION");
+
+#[derive(Debug, Clone)]
+struct Data {
+	db: SqlitePool,
+	cfg: Config,
+}
+type Ctx<'a> = poise::Context<'a, Data, anyhow::Error>;
 
 #[tokio::main]
 #[instrument]
@@ -55,14 +62,40 @@ async fn main() -> anyhow::Result<()> {
 		return axum_fut.await.with_context(|| "axum server");
 	}
 
+	// Makes the borrow checker happy
+	let fdb = db_pool.clone();
+	let fcfg = cfg.clone();
+
+	// Build the Poise framework
+	let framework = poise::Framework::builder()
+		.options(poise::FrameworkOptions {
+			event_handler: |ctx, event, framework, data| {
+				Box::pin(handler(ctx, event, framework, data))
+			},
+			commands: vec![
+				commands::quotes::top(),
+				commands::drunks::drunk(),
+				commands::drunks::spill(),
+			],
+			..Default::default()
+		})
+		.setup(|ctx, _ready, framework| {
+			Box::pin(async move {
+				poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+				Ok(Data { db: fdb, cfg: fcfg })
+			})
+		})
+		.build();
+
 	// Build the Serenity client
-	let mut client = Client::builder(cfg.token.clone(), GatewayIntents::default())
-		.type_map_insert::<DB>(db_pool.clone())
-		.type_map_insert::<Config>(cfg.clone())
-		.event_handler(Handler)
-		.application_id(cfg.app_id.unwrap_or_default())
-		.await
-		.with_context(|| "serenity client setup")?;
+	let mut client = serenity::ClientBuilder::new(
+		cfg.token.clone(),
+		serenity::GatewayIntents::non_privileged(),
+	)
+	.framework(framework)
+	.application_id(cfg.app_id.unwrap_or_default())
+	.await
+	.with_context(|| "serenity client setup")?;
 
 	// Setup the cron jobs to check every 60 seconds
 	let mut scheduler = setup_jobs(db_pool, client.http.clone());
@@ -94,16 +127,12 @@ async fn main() -> anyhow::Result<()> {
 #[derive(Clone, Debug, Default)]
 pub struct Config {
 	pub token: String,
-	pub app_id: Option<ApplicationId>,
+	pub app_id: Option<serenity::ApplicationId>,
 	pub domain: String,
 	pub port: u16,
 	pub otel_endpoint: String,
 	pub otel_api_key: String,
 	pub only_webserver: bool,
-}
-
-impl TypeMapKey for Config {
-	type Value = Self;
 }
 
 // Get configuration from environment variables
@@ -122,7 +151,7 @@ fn setup_config() -> anyhow::Result<Config> {
 	let app_id = env::var("APPLICATION_ID")
 		.with_context(|| "APPLICATION_ID env variable")
 		.and_then(|id| {
-			id.parse::<ApplicationId>()
+			id.parse::<serenity::ApplicationId>()
 				.with_context(|| "APPLICATION_ID parse")
 		})
 		.ok();
@@ -184,12 +213,6 @@ fn setup_tracing(cfg: Config) -> anyhow::Result<()> {
 	let subscriber = tracing_subscriber::Registry::default().with(telemetry);
 
 	tracing::subscriber::set_global_default(subscriber).with_context(|| "tracing subscriber")
-}
-
-pub struct DB;
-
-impl TypeMapKey for DB {
-	type Value = sqlx::SqlitePool;
 }
 
 async fn setup_db() -> anyhow::Result<SqlitePool> {

@@ -1,92 +1,126 @@
-use anyhow::bail;
-use serenity::all::{CommandDataOptionValue, Context as Ctx, Interaction, Mentionable};
+use anyhow::Context;
+use poise::serenity_prelude::{Member, Mentionable, Message, UserId};
+use tracing::instrument;
 
-use crate::shared::helpers::{get_cfg, get_cmd, get_db, get_inter};
 use crate::shared::quotes;
+use crate::Ctx;
 
-pub async fn add(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
-	let db = get_db(ctx.clone()).await?;
-	let cmd = get_cmd(interaction)?;
+/// Manage peoples' quotes
+#[poise::command(
+	slash_command,
+	rename = "quotes",
+	subcommands("add", "remove", "get", "list"),
+	subcommand_required
+)]
+#[allow(clippy::unused_async)]
+pub async fn top(_ctx: Ctx<'_>) -> anyhow::Result<()> {
+	Ok(())
+}
 
-	let CommandDataOptionValue::SubCommand(cmds) = cmd.value.clone() else {
-		bail!("was not subcommand");
-	};
-
-	let Some(user_id) = cmds.first().and_then(|u| u.value.as_user_id()) else {
-		bail!("no user id");
-	};
-	let user = user_id.to_user(ctx).await?;
-	let Some(text) = cmds.get(1).and_then(|t| t.value.as_str()) else {
-		bail!("no quote text")
-	};
-
-	let inter = get_inter(interaction)?;
-	let Some(author) = inter.member.as_ref() else {
-		bail!("no quote author")
-	};
-
-	let user_name = &user.name;
-	let author_id = author.user.id;
-	let author_name = author.user.name.clone();
-
+/// Add a quote to the database
+#[poise::command(slash_command)]
+#[instrument]
+async fn add(
+	ctx: Ctx<'_>,
+	#[description = "Who is this quote by?"] user: Member,
+	#[description = "What did they say?"] text: String,
+) -> anyhow::Result<()> {
 	quotes::add(
-		db,
-		user_id,
-		user_name,
-		author_id,
-		author_name.as_str(),
+		&ctx.data().db,
+		user.user.id,
+		&user.user.name,
+		ctx.author().id,
+		&ctx.author().name,
+		&text,
+	)
+	.await?;
+
+	ctx.say(format!("Quote added for {}\n>>> {}", user.mention(), text))
+		.await?;
+
+	Ok(())
+}
+
+/// Remove a quote from the database
+#[poise::command(slash_command)]
+#[instrument]
+async fn remove(
+	ctx: Ctx<'_>,
+	#[description = "What number quote should be removed?"] number: i64,
+) -> anyhow::Result<()> {
+	let row = quotes::remove(&ctx.data().db, number).await?;
+
+	ctx.say(
+		row.map(|user_id| format!("Quote {} removed by {}", number, user_id.mention()))
+			.unwrap_or(format!("Quote {number} does not exist")),
+	)
+	.await?;
+
+	Ok(())
+}
+
+/// Get a quote from the database
+#[poise::command(slash_command)]
+#[instrument]
+async fn get(
+	ctx: Ctx<'_>,
+	#[description = "What number quote should be gotten?"] number: i64,
+) -> anyhow::Result<()> {
+	let quote = quotes::get_one(&ctx.data().db, number).await?;
+
+	let reply = quote
+		.map(|q| {
+			format!(
+				"Quote {} by {}\n>>> {}",
+				number,
+				q.user_id.parse::<UserId>().unwrap_or_default().mention(),
+				q.text
+			)
+		})
+		.unwrap_or(format!("Quote {number} does not exist"));
+
+	ctx.say(reply).await.with_context(|| "quote get reply")?;
+
+	Ok(())
+}
+
+/// List all the quotes by this user (or everyone)
+#[poise::command(slash_command)]
+#[instrument]
+async fn list(
+	ctx: Ctx<'_>,
+	#[description = "Who is this quote by?"] user: Option<Member>,
+) -> anyhow::Result<()> {
+	ctx.say(quotes::list_url(&ctx.data().cfg, user.map(|u| u.user.id)))
+		.await
+		.with_context(|| "quote list reply")?;
+
+	Ok(())
+}
+
+#[poise::command(context_menu_command = "Add Quote")]
+#[instrument]
+async fn context_menu(
+	ctx: Ctx<'_>,
+	#[description = "The message to add as a quote"] msg: Message,
+) -> anyhow::Result<()> {
+	let text = &msg.content_safe(ctx.cache());
+	quotes::add(
+		&ctx.data().db,
+		msg.author.id,
+		&msg.author.name,
+		ctx.author().id,
+		&ctx.author().name,
 		text,
 	)
 	.await?;
 
-	Ok(format!(
+	ctx.say(format!(
 		"Quote added for {}\n>>> {}",
-		user_id.mention(),
+		msg.author.mention(),
 		text
 	))
-}
+	.await?;
 
-pub async fn remove(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
-	let db = get_db(ctx).await?;
-	let cmd = get_cmd(interaction)?;
-
-	let CommandDataOptionValue::SubCommand(cmds) = cmd.value.clone() else {
-		bail!("was not subcommand");
-	};
-
-	let id = cmds
-		.first()
-		.and_then(|c| c.value.as_i64())
-		.ok_or_else(|| anyhow::anyhow!("quote get id"))?;
-
-	quotes::remove(db, id).await
-}
-
-pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
-	let db = get_db(ctx).await?;
-	let cmd = get_cmd(interaction)?;
-
-	let CommandDataOptionValue::SubCommand(cmds) = cmd.value.clone() else {
-		bail!("was not subcommand");
-	};
-
-	let id = cmds
-		.first()
-		.and_then(|c| c.value.as_i64())
-		.ok_or_else(|| anyhow::anyhow!("quote get id"))?;
-
-	quotes::get_one(db, id).await
-}
-
-pub async fn list(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> {
-	let cfg = get_cfg(ctx).await?;
-	let cmd = get_cmd(interaction)?;
-
-	let CommandDataOptionValue::SubCommand(cmds) = cmd.value.clone() else {
-		bail!("was not subcommand");
-	};
-
-	let user_id = cmds.first().and_then(|u| u.value.as_user_id());
-
-	Ok(quotes::list_url(cfg, user_id))
+	Ok(())
 }

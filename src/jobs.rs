@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use clokwerk::Interval;
 use clokwerk::{AsyncScheduler, Job, TimeUnits};
-use serenity::all::{ChannelId, Http};
+use poise::serenity_prelude::{ChannelId, Http};
 use tracing::{error, instrument, trace_span, warn};
 
 use crate::shared::helpers::{post_random_to_channel, post_stonks_to_channel};
@@ -39,7 +39,7 @@ pub fn setup_jobs(db: sqlx::SqlitePool, http: Arc<Http>) -> AsyncScheduler<chron
 
 				for chan in qotd_channels {
 					let Ok(_) = post_random_to_channel(
-						db.clone(),
+						&db.clone(),
 						http.clone(),
 						chan,
 						"**Quote of the Day**".to_string(),

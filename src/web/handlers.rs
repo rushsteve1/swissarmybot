@@ -9,9 +9,9 @@ use axum::routing::get;
 use axum::Router;
 use chrono::Local;
 use maud::Markup;
+use poise::serenity_prelude::UserId;
 use serde::Deserializer;
 use serde::{de, Deserialize};
-use serenity::all::UserId;
 use sqlx::SqlitePool;
 use tracing::instrument;
 
@@ -74,9 +74,9 @@ async fn quotes(
 
 	let selected = query.user.map(UserId::new);
 	let quotes = if let Some(user_id) = selected {
-		quotes::get_for_user_id(db, from_date, to_date, user_id).await?
+		quotes::get_for_user_id(&db, from_date, to_date, user_id).await?
 	} else {
-		quotes::get_all(db, from_date, to_date).await?
+		quotes::get_all(&db, from_date, to_date).await?
 	};
 
 	Ok(templates::base(&templates::quotes(

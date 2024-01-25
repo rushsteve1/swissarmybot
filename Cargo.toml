@@ -36,6 +36,7 @@ maud = { version = "^0.26", features = ["axum"] }
 opentelemetry = "*"
 opentelemetry-otlp = { version = "^0.14", features = ["tls", "tls-roots"] }
 opentelemetry_sdk = { version = "*", features = ["rt-tokio"] }
+poise = "^0.6"
 regex = "*"
 scraper = "^0.18"
 serde = "*"
@@ -49,11 +50,6 @@ tracing-subscriber = "*"
 version = "*"
 default_features = false
 features = [ "rustls-tls", "gzip" ]
-
-[dependencies.serenity]
-version = "^0.12"
-default_features = false
-features = [ "client", "gateway", "rustls_backend", "model" ]
 
 [dependencies.sqlx]
 version = "^0.7"

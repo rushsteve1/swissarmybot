@@ -1,17 +1,13 @@
 use std::sync::Arc;
 
 use anyhow::Context;
+use poise::serenity_prelude::{ChannelId, CreateMessage, Http, Mentionable, Message, UserId};
 use scraper::{Html, Selector};
-use serenity::all::{
-	ChannelId, CommandDataOption, CommandInteraction, Context as Ctx, CreateMessage, Http,
-	Interaction, Mentionable, Message, UserId,
-};
 use sqlx::SqlitePool;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 use super::quotes;
 
-pub const THE_CAPTAIN: UserId = UserId::new(115_178_518_391_947_265);
 const GOOD_STONKS: &str = "📈";
 const BAD_STONKS: &str = "📉";
 const STONKS_URL: &str = "https://finance.yahoo.com";
@@ -19,7 +15,7 @@ const STONKS_SEL: &str = "#marketsummary-itm-2 > h3:nth-child(1) > div:nth-child
 
 #[instrument]
 pub async fn post_random_to_channel(
-	db: SqlitePool,
+	db: &SqlitePool,
 	http: Arc<Http>,
 	chan: ChannelId,
 	body: String,
@@ -68,39 +64,4 @@ pub async fn post_stonks_to_channel(http: Arc<Http>, chan: ChannelId) -> anyhow:
 	chan.send_message(http, CreateMessage::new().content(txt))
 		.await
 		.with_context(|| "sending stonks message")
-}
-
-pub fn get_inter(interaction: &Interaction) -> anyhow::Result<&CommandInteraction> {
-	if let Interaction::Command(inter) = interaction {
-		Ok(inter)
-	} else {
-		warn!("interaction was not command");
-		Err(anyhow::anyhow!("interaction was not command"))
-	}
-}
-
-pub fn get_cmd(interaction: &Interaction) -> anyhow::Result<&CommandDataOption> {
-	get_inter(interaction)?
-		.data
-		.options
-		.first()
-		.ok_or_else(|| anyhow::anyhow!("interaction did not have command"))
-}
-
-pub async fn get_db(ctx: Ctx) -> anyhow::Result<SqlitePool> {
-	ctx.data
-		.read()
-		.await
-		.get::<crate::DB>()
-		.ok_or_else(|| anyhow::anyhow!("could not get database from context"))
-		.map(SqlitePool::clone)
-}
-
-pub async fn get_cfg(ctx: Ctx) -> anyhow::Result<crate::Config> {
-	ctx.data
-		.read()
-		.await
-		.get::<crate::Config>()
-		.ok_or_else(|| anyhow::anyhow!("could not get config from context"))
-		.map(crate::Config::clone)
 }
