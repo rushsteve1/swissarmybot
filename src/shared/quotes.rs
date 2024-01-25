@@ -4,6 +4,8 @@ use serenity::all::{Mentionable, UserId};
 use sqlx::SqlitePool;
 use tracing::instrument;
 
+use crate::shared::helpers::to_user_id;
+
 #[derive(sqlx::FromRow)]
 pub struct Quote {
 	pub id: i64,
@@ -46,12 +48,13 @@ pub async fn remove(db: SqlitePool, id: i64) -> anyhow::Result<String> {
 	let row = sqlx::query_scalar!("DELETE FROM quotes WHERE id = ? RETURNING user_id;", id)
 		.fetch_optional(&db)
 		.await
-		.with_context(|| "error deleting quote")?;
+		.with_context(|| "error deleting quote")?
+		.and_then(|r| r.try_into().ok());
 
 	Ok(row
-		.map(|i| UserId::new(i as u64))
+		.map(UserId::new)
 		.map(|user_id| format!("Quote {} removed by {}", id, user_id.mention()))
-		.unwrap_or(format!("Quote {} does not exist", id)))
+		.unwrap_or(format!("Quote {id} does not exist")))
 }
 
 #[instrument]
@@ -66,11 +69,11 @@ pub async fn get_one(db: SqlitePool, id: i64) -> anyhow::Result<String> {
 			format!(
 				"Quote {} by {}\n>>> {}",
 				id,
-				UserId::new(q.user_id as u64).mention(),
+				to_user_id(q.user_id).unwrap_or_default().mention(),
 				q.text
 			)
 		})
-		.unwrap_or(format!("Quote {} does not exist", id)))
+		.unwrap_or(format!("Quote {id} does not exist")))
 }
 
 #[instrument]
@@ -136,9 +139,6 @@ mod tests {
 			..Default::default()
 		};
 
-		assert_eq!(
-			"https://sab.rushsteve1.us/quotes",
-			list_url(cfg.clone(), None)
-		)
+		assert_eq!("https://sab.rushsteve1.us/quotes", list_url(cfg, None));
 	}
 }

@@ -13,7 +13,7 @@ pub struct BigMoji {
 #[instrument]
 pub async fn add(db: SqlitePool, name: &str, text: &str) -> anyhow::Result<()> {
 	// Prevents recursive BigMoji
-	let text = text.replace(&format!(":{}:", name), "");
+	let text = text.replace(&format!(":{name}:"), "");
 
 	sqlx::query!(
 		"INSERT INTO bigmoji (name, text) VALUES (?, ?);",

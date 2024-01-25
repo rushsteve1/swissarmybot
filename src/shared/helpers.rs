@@ -11,7 +11,7 @@ use tracing::{instrument, warn};
 
 use super::quotes;
 
-pub const THE_CAPTAIN: UserId = UserId::new(115178518391947265);
+pub const THE_CAPTAIN: UserId = UserId::new(115_178_518_391_947_265);
 const GOOD_STONKS: &str = "📈";
 const BAD_STONKS: &str = "📉";
 const STONKS_URL: &str = "https://finance.yahoo.com";
@@ -25,8 +25,8 @@ pub async fn post_random_to_channel(
 	body: String,
 ) -> anyhow::Result<Message> {
 	let quote = quotes::get_random(db).await?;
-	let user_id = serenity::model::id::UserId::new(quote.user_id as u64);
-	let author_id = serenity::model::id::UserId::new(quote.author_id as u64);
+	let user_id = to_user_id(quote.user_id)?;
+	let author_id = to_user_id(quote.author_id)?;
 
 	let txt = format!(
 		"{}\n#{} by {}, added by {} on <t:{}:f>\n\n>>> {}",
@@ -62,7 +62,7 @@ pub async fn post_stonks_to_channel(http: Arc<Http>, chan: ChannelId) -> anyhow:
 				_ => None,
 			}
 		})()
-		.ok_or(anyhow::anyhow!("failed to find element"))?
+		.ok_or_else(|| anyhow::anyhow!("failed to find element"))?
 	};
 
 	chan.send_message(http, CreateMessage::new().content(txt))
@@ -84,21 +84,27 @@ pub fn get_cmd(interaction: &Interaction) -> anyhow::Result<&CommandDataOption> 
 		.data
 		.options
 		.first()
-		.ok_or(anyhow::anyhow!("interaction did not have command"))
+		.ok_or_else(|| anyhow::anyhow!("interaction did not have command"))
 }
 
 pub async fn get_db(ctx: Ctx) -> anyhow::Result<SqlitePool> {
-	let lock = ctx.data.read().await;
-	let Some(db) = lock.get::<crate::DB>() else {
-		anyhow::bail!("could not get database from context");
-	};
-	Ok(db.clone())
+	ctx.data
+		.read()
+		.await
+		.get::<crate::DB>()
+		.ok_or_else(|| anyhow::anyhow!("could not get database from context"))
+		.map(SqlitePool::clone)
 }
 
 pub async fn get_cfg(ctx: Ctx) -> anyhow::Result<crate::Config> {
-	let lock = ctx.data.read().await;
-	let Some(cfg) = lock.get::<crate::Config>() else {
-		anyhow::bail!("could not get config from context");
-	};
-	Ok(cfg.clone())
+	ctx.data
+		.read()
+		.await
+		.get::<crate::Config>()
+		.ok_or_else(|| anyhow::anyhow!("could not get config from context"))
+		.map(crate::Config::clone)
+}
+
+pub fn to_user_id(id: i64) -> anyhow::Result<UserId> {
+	Ok(UserId::new(id.try_into()?))
 }

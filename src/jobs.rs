@@ -16,12 +16,12 @@ pub fn setup_jobs(db: sqlx::SqlitePool, http: Arc<Http>) -> AsyncScheduler<chron
 	let stonks_channels: Vec<ChannelId> = env::var("STONKS_CHANNELS")
 		.unwrap_or_default()
 		.split(',')
-		.filter_map(|s| s.trim().parse::<u64>().ok().map(|i| i.into()))
+		.filter_map(|s| s.trim().parse::<u64>().ok().map(std::convert::Into::into))
 		.collect();
 	let qotd_channels: Vec<ChannelId> = env::var("QOTD_CHANNELS")
 		.unwrap_or_default()
 		.split(',')
-		.filter_map(|s| s.trim().parse::<u64>().ok().map(|i| i.into()))
+		.filter_map(|s| s.trim().parse::<u64>().ok().map(std::convert::Into::into))
 		.collect();
 
 	{
@@ -37,7 +37,7 @@ pub fn setup_jobs(db: sqlx::SqlitePool, http: Arc<Http>) -> AsyncScheduler<chron
 				let span = trace_span!("QOTD job");
 				let _enter = span.enter();
 
-				for chan in qotd_channels.into_iter() {
+				for chan in qotd_channels {
 					let Ok(_) = post_random_to_channel(
 						db.clone(),
 						http.clone(),
@@ -66,7 +66,7 @@ pub fn setup_jobs(db: sqlx::SqlitePool, http: Arc<Http>) -> AsyncScheduler<chron
 				let span = trace_span!("Stonks job");
 				let _enter = span.enter();
 
-				for chan in stonks_channels.into_iter() {
+				for chan in stonks_channels {
 					let Ok(_) = post_stonks_to_channel(http.clone(), chan).await else {
 						error!("could not post stonks");
 						break;

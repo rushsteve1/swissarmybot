@@ -10,7 +10,7 @@ pub async fn update(db: sqlx::SqlitePool, interaction: &Interaction) -> anyhow::
 	let author = inter
 		.member
 		.as_ref()
-		.ok_or(anyhow::anyhow!("interaction had no author"))?;
+		.ok_or_else(|| anyhow::anyhow!("interaction had no author"))?;
 	let author_id = author.user.id;
 	let author_name = author.user.name.to_string();
 

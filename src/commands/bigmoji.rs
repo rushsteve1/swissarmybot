@@ -15,11 +15,11 @@ pub async fn add(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<St
 		return Ok("BigMoji name too short".to_string());
 	}
 
-	let text = cmd.value.as_str().ok_or(anyhow!("bigmoji text"))?;
+	let text = cmd.value.as_str().ok_or_else(|| anyhow!("bigmoji text"))?;
 
 	bigmoji::add(db, name.as_str(), text).await?;
 
-	Ok(format!("BigMoji `:{}:` added", name))
+	Ok(format!("BigMoji `:{name}:` added"))
 }
 
 pub async fn remove(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
@@ -29,7 +29,7 @@ pub async fn remove(db: SqlitePool, interaction: &Interaction) -> anyhow::Result
 
 	bigmoji::remove(db, name.as_str()).await?;
 
-	Ok(format!("Deleted BigMoji `:{}:`", name))
+	Ok(format!("Deleted BigMoji `:{name}:`"))
 }
 
 pub async fn get(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<String> {
@@ -42,5 +42,5 @@ pub async fn get(db: SqlitePool, interaction: &Interaction) -> anyhow::Result<St
 
 	Ok(moji
 		.map(|m| m.text)
-		.unwrap_or(format!("BigMoji `:{}:` does not exist", name)))
+		.unwrap_or(format!("BigMoji `:{name}:` does not exist")))
 }

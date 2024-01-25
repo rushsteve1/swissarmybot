@@ -16,7 +16,7 @@ trait AsInner {
 
 impl AsInner for OptionValue {
 	fn as_string(&self) -> Option<&String> {
-		if let OptionValue::String(s) = self {
+		if let Self::String(s) = self {
 			Some(s)
 		} else {
 			None
@@ -24,7 +24,7 @@ impl AsInner for OptionValue {
 	}
 
 	fn as_int(&self) -> Option<i64> {
-		if let OptionValue::Integer(i) = self {
+		if let Self::Integer(i) = self {
 			Some(*i)
 		} else {
 			None
@@ -32,7 +32,7 @@ impl AsInner for OptionValue {
 	}
 
 	fn as_user(&self) -> Option<&serenity::model::id::UserId> {
-		if let OptionValue::User(u) = self {
+		if let Self::User(u) = self {
 			Some(u)
 		} else {
 			None

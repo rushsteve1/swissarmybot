@@ -1,10 +1,30 @@
 [package]
 name = "swiss_army_bot"
-version = "1.8.0-nein"
+version = "1.9.0-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lints.rust]
+unsafe_code = "forbid"
+future_incompatible = "forbid"
+
+[lints.clippy]
+indexing_slicing = "forbid"
+unwrap_used = "deny"
+expect_used = "deny"
+invalid_regex = "deny"
+enum_glob_use = "deny"
+pedantic = "deny"
+nursery = "deny"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
 
 [dependencies]
 anyhow = "*"

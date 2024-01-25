@@ -45,7 +45,7 @@ pub fn footer() -> Markup {
 	}
 }
 
-pub fn base(child: Markup) -> Markup {
+pub fn base(child: &Markup) -> Markup {
 	html! {
 		(DOCTYPE)
 		html {
@@ -122,7 +122,7 @@ pub fn bigmoji(bigmoji: Vec<BigMoji>) -> Markup {
 				@for moji in bigmoji {
 					tr {
 						td { code { (moji.name) } }
-						td { (linkify(moji.text)) }
+						td { (linkify(&moji.text)) }
 						td nowrap { (moji.inserted_at) }
 					}
 				}
@@ -134,8 +134,8 @@ pub fn bigmoji(bigmoji: Vec<BigMoji>) -> Markup {
 pub fn quotes(
 	quotes: Vec<Quote>,
 	selected: Option<u64>,
-	from_date: String,
-	to_date: String,
+	from_date: &str,
+	to_date: &str,
 ) -> Markup {
 	html! {
 		h1 { "Quote List" }
@@ -231,10 +231,10 @@ pub fn drunks(drunks: Vec<Drunk>, last_spill_days: i64) -> Markup {
 	}
 }
 
-fn linkify(text: String) -> String {
+fn linkify(text: &str) -> String {
 	let text = text.trim();
 	if text.starts_with("http") && !text.contains([' ', '\n']) {
-		format!("<a href=\"{}\" target=\"_blank\">{}</a>", text, text)
+		format!("<a href=\"{text}\" target=\"_blank\">{text}</a>")
 	} else {
 		text.to_string()
 	}

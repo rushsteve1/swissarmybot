@@ -1,10 +1,3 @@
-#![forbid(unsafe_code)]
-#![forbid(future_incompatible)]
-#![forbid(clippy::indexing_slicing)]
-#![deny(clippy::unwrap_used)]
-#![deny(clippy::expect_used)]
-#![deny(clippy::invalid_regex)]
-
 use std::{env, future::IntoFuture, time::Duration};
 
 use anyhow::{bail, Context};
@@ -86,6 +79,8 @@ async fn main() -> anyhow::Result<()> {
 	// We're running everything in Tokio workers, and none of them should ever exit,
 	// so we wait for them and print an error if they do.
 	debug!("Starting event loop...");
+
+	// Silence clippy for this minor macro issue
 	tokio::select!(
 		e = serenity_fut => e.with_context(|| "Serenity exited!")?,
 		e = axum_fut => e.with_context(|| "Axum exited!")?,

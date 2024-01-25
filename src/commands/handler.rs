@@ -148,7 +148,7 @@ async fn handle_spill_command(ctx: Ctx, interaction: &Interaction) -> anyhow::Re
 	let author = inter
 		.member
 		.as_ref()
-		.ok_or(anyhow::anyhow!("interaction had no author"))?;
+		.ok_or_else(|| anyhow::anyhow!("interaction had no author"))?;
 	let author_id = author.user.id.to_string();
 
 	sqlx::query!(
@@ -176,7 +176,7 @@ async fn send_bigmoji(ctx: Ctx, message: &Message) -> anyhow::Result<()> {
 	for mat in re.captures_iter(&message.content) {
 		let term = mat
 			.get(1)
-			.ok_or(anyhow::anyhow!("did not match"))?
+			.ok_or_else(|| anyhow::anyhow!("did not match"))?
 			.as_str()
 			.to_lowercase();
 		let moji = bigmoji::get_one(db.clone(), term.as_str()).await?;

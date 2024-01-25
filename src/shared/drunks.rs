@@ -81,11 +81,10 @@ pub async fn update(
         .await
         .with_context(|| "updating drunk")?;
 
-	let type_str = if let Some(name) = drink_name {
-		format!("{}: {}", drink_type, name)
-	} else {
-		drink_type.to_string()
-	};
+	let type_str = drink_name.map_or_else(
+		|| drink_type.to_string(),
+		|name| format!("{drink_type}: {name}"),
+	);
 
 	sqlx::query!(
 		"UPDATE drunk SET last_drink = ? WHERE user_id = ?;",

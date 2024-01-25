@@ -57,7 +57,7 @@ pub async fn remove(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<Strin
 	let id = cmds
 		.first()
 		.and_then(|c| c.value.as_i64())
-		.ok_or(anyhow::anyhow!("quote get id"))?;
+		.ok_or_else(|| anyhow::anyhow!("quote get id"))?;
 
 	quotes::remove(db, id).await
 }
@@ -73,7 +73,7 @@ pub async fn get(ctx: Ctx, interaction: &Interaction) -> anyhow::Result<String> 
 	let id = cmds
 		.first()
 		.and_then(|c| c.value.as_i64())
-		.ok_or(anyhow::anyhow!("quote get id"))?;
+		.ok_or_else(|| anyhow::anyhow!("quote get id"))?;
 
 	quotes::get_one(db, id).await
 }

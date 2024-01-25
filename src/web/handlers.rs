@@ -54,12 +54,12 @@ pub fn router(db: SqlitePool) -> Router {
 
 #[instrument]
 async fn index() -> Markup {
-	templates::base(templates::index(VERSION, GIT_VERSION))
+	templates::base(&templates::index(VERSION, GIT_VERSION))
 }
 
 #[instrument]
 async fn bigmoji(State(db): State<SqlitePool>) -> Result<Markup, AppError> {
-	Ok(templates::base(templates::bigmoji(
+	Ok(templates::base(&templates::bigmoji(
 		bigmoji::get_all(db).await?,
 	)))
 }
@@ -71,12 +71,12 @@ async fn quotes(
 ) -> Result<Markup, AppError> {
 	let from_date = query
 		.from_date
-		.ok_or(anyhow::anyhow!("no from_date"))
+		.ok_or_else(|| anyhow::anyhow!("no from_date"))
 		.and_then(|d| d.parse().with_context(|| "parsing from_date"))
 		.unwrap_or_default();
 	let to_date = query
 		.to_date
-		.ok_or(anyhow::anyhow!("no to_date"))
+		.ok_or_else(|| anyhow::anyhow!("no to_date"))
 		.and_then(|d| d.parse().with_context(|| "parsing to_date"))
 		.unwrap_or_else(|_| chrono::Utc::now().naive_utc());
 
@@ -87,11 +87,11 @@ async fn quotes(
 		quotes::get_all(db, from_date, to_date).await?
 	};
 
-	Ok(templates::base(templates::quotes(
+	Ok(templates::base(&templates::quotes(
 		quotes,
-		selected.map(|u| u.get()),
-		from_date.to_string(),
-		to_date.to_string(),
+		selected.map(UserId::get),
+		&from_date.to_string(),
+		&to_date.to_string(),
 	)))
 }
 
@@ -107,7 +107,7 @@ async fn drunks(State(db): State<SqlitePool>) -> Result<Markup, AppError> {
     .map(|t| (Local::now() - t.and_local_timezone(Local).unwrap()).num_days())
     .unwrap_or_default();
 
-	Ok(templates::base(templates::drunks(drunks, last_spill_days)))
+	Ok(templates::base(&templates::drunks(drunks, last_spill_days)))
 }
 
 #[instrument]
