@@ -8,10 +8,13 @@ use crate::Ctx;
 #[instrument]
 pub async fn drunk(
 	ctx: Ctx<'_>,
+	#[rename = "drink type"]
 	#[description = "What kinda drink ya havin?"]
 	#[autocomplete = "autocomplete_drink_type"]
 	drink_type: String,
-	#[description = "Be more specific"] drink_name: Option<String>,
+	#[rename = "drink name"]
+	#[description = "Be more specific"]
+	drink_name: Option<String>,
 ) -> anyhow::Result<()> {
 	let (author_id, type_str) = crate::shared::drunks::update(
 		&ctx.data().db,

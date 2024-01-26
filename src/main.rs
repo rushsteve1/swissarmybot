@@ -38,9 +38,6 @@ type Ctx<'a> = poise::Context<'a, Data, anyhow::Error>;
 #[tokio::main]
 #[instrument]
 async fn main() -> anyhow::Result<()> {
-	// Before we do anything set Tracing to use stdout
-	tracing_subscriber::fmt::init();
-
 	let cfg = setup_config().with_context(|| "config setup")?;
 
 	setup_tracing(cfg.clone()).with_context(|| "tracing setup")?;
@@ -76,6 +73,7 @@ async fn main() -> anyhow::Result<()> {
 				commands::quotes::top(),
 				commands::drunks::drunk(),
 				commands::drunks::spill(),
+				commands::register(),
 			],
 			..Default::default()
 		})
@@ -113,12 +111,16 @@ async fn main() -> anyhow::Result<()> {
 	// so we wait for them and print an error if they do.
 	debug!("Starting event loop...");
 
-	// Silence clippy for this minor macro issue
-	tokio::select!(
-		e = serenity_fut => e.with_context(|| "Serenity exited!")?,
-		e = axum_fut => e.with_context(|| "Axum exited!")?,
-		e = job_fut => e.with_context(|| "Jobs exited!")?,
-	);
+	// Fixes a clippy lint, have to put it around a block so it applies to the macro
+	#[allow(clippy::redundant_pub_crate)]
+	{
+		// Silence clippy for this minor macro issue
+		tokio::select!(
+			e = serenity_fut => e.with_context(|| "Serenity exited!")?,
+			e = axum_fut => e.with_context(|| "Axum exited!")?,
+			e = job_fut => e.with_context(|| "Jobs exited!")?,
+		);
+	}
 
 	// Shouldn't be possible, but just in case
 	anyhow::bail!("SwissArmyBot exited!")
@@ -179,6 +181,7 @@ fn setup_config() -> anyhow::Result<Config> {
 
 fn setup_tracing(cfg: Config) -> anyhow::Result<()> {
 	if cfg.otel_endpoint.is_empty() {
+		tracing_subscriber::fmt::init();
 		return Ok(());
 	}
 
