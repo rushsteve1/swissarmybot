@@ -8,11 +8,11 @@ use crate::Ctx;
 #[instrument]
 pub async fn drunk(
 	ctx: Ctx<'_>,
-	#[rename = "drink type"]
+	#[rename = "type"]
 	#[description = "What kinda drink ya havin?"]
 	#[autocomplete = "autocomplete_drink_type"]
 	drink_type: String,
-	#[rename = "drink name"]
+	#[rename = "name"]
 	#[description = "Be more specific"]
 	drink_name: Option<String>,
 ) -> anyhow::Result<()> {
@@ -33,7 +33,7 @@ pub async fn drunk(
 
 const THE_CAPTAIN: UserId = UserId::new(115_178_518_391_947_265);
 
-/// Report that a Spill has occured
+/// Report that a Spill has occured and you are the culprit
 #[poise::command(slash_command)]
 #[instrument]
 pub async fn spill(ctx: Ctx<'_>) -> anyhow::Result<()> {

@@ -73,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
 				commands::quotes::top(),
 				commands::drunks::drunk(),
 				commands::drunks::spill(),
-				commands::register(),
+				// commands::register(),
 			],
 			..Default::default()
 		})
