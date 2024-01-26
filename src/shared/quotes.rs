@@ -1,15 +1,19 @@
 use anyhow::Context;
 use chrono::NaiveDateTime;
+use juniper::GraphQLObject;
 use poise::serenity_prelude::UserId;
 use sqlx::SqlitePool;
 use tracing::instrument;
 
-#[derive(sqlx::FromRow)]
+use super::helpers::CleverNum;
+
+#[derive(sqlx::FromRow, GraphQLObject)]
+#[graphql(description = "A drunkard on the leaderboard")]
 pub struct Quote {
-	pub id: i64,
-	pub user_id: String,
+	pub id: CleverNum,
+	pub user_id: CleverNum,
 	pub user_name: String,
-	pub author_id: String,
+	pub author_id: CleverNum,
 	pub author_name: String,
 	pub text: String,
 	pub inserted_at: NaiveDateTime,
@@ -39,11 +43,14 @@ pub async fn add(
 
 #[instrument]
 pub async fn remove(db: &SqlitePool, id: i64) -> anyhow::Result<Option<UserId>> {
-	sqlx::query_scalar!("DELETE FROM quotes WHERE id = ? RETURNING user_id;", id)
-		.fetch_optional(db)
-		.await
-		.map(|o| o.map(|u| u.parse::<UserId>().unwrap_or_default()))
-		.with_context(|| "error deleting quote")
+	sqlx::query_scalar!(
+		r#"DELETE FROM quotes WHERE id = ? RETURNING user_id AS "CleverNum";"#,
+		id
+	)
+	.fetch_optional(db)
+	.await
+	.map(|o| o.map(|u| CleverNum::from(u).into()))
+	.with_context(|| "error deleting quote")
 }
 
 #[instrument]
@@ -55,7 +62,12 @@ pub async fn get_one(db: &SqlitePool, id: i64) -> anyhow::Result<Option<Quote>> 
 }
 
 #[instrument]
-pub async fn get_all(
+pub async fn get_all(db: &SqlitePool) -> anyhow::Result<Vec<Quote>> {
+	get_all_between(db, NaiveDateTime::MIN, NaiveDateTime::MAX).await
+}
+
+#[instrument]
+pub async fn get_all_between(
 	db: &SqlitePool,
 	from_date: chrono::NaiveDateTime,
 	to_date: chrono::NaiveDateTime,

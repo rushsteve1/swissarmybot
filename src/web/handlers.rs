@@ -1,13 +1,15 @@
 use std::fmt;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::Context;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
-use axum::Router;
+use axum::{Extension, Router};
 use chrono::Local;
+use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use maud::Markup;
 use poise::serenity_prelude::UserId;
 use serde::Deserializer;
@@ -15,7 +17,7 @@ use serde::{de, Deserialize};
 use sqlx::SqlitePool;
 use tracing::instrument;
 
-use super::templates;
+use super::{graphql, templates};
 
 use crate::shared::{drunks, quotes};
 use crate::{GIT_VERSION, VERSION};
@@ -42,12 +44,21 @@ where
 	}
 }
 
+type Schema = RootNode<'static, graphql::Query, EmptyMutation, EmptySubscription>;
+
 pub fn router(db: SqlitePool) -> Router {
+	let schema = Schema::new(
+		graphql::Query,
+		EmptyMutation::new(),
+		EmptySubscription::new(),
+	);
+
 	Router::new()
 		.route("/", get(index))
 		.route("/drunks", get(drunks))
 		.route("/quotes", get(quotes))
 		.fallback(not_found)
+		.layer(Extension(Arc::new(schema)))
 		.with_state(db)
 }
 
@@ -76,7 +87,7 @@ async fn quotes(
 	let quotes = if let Some(user_id) = selected {
 		quotes::get_for_user_id(&db, from_date, to_date, user_id).await?
 	} else {
-		quotes::get_all(&db, from_date, to_date).await?
+		quotes::get_all_between(&db, from_date, to_date).await?
 	};
 
 	Ok(templates::base(&templates::quotes(
@@ -89,7 +100,7 @@ async fn quotes(
 
 #[instrument]
 async fn drunks(State(db): State<SqlitePool>) -> Result<Markup, AppError> {
-	let mut drunks = drunks::get_all(db.clone()).await?;
+	let mut drunks = drunks::get_all(&db).await?;
 	drunks.sort_by_key(drunks::Drunk::score);
 
 	let last_spill_days: i64 = sqlx::query_scalar!(

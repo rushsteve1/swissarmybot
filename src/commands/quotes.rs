@@ -73,7 +73,7 @@ async fn get(
 			format!(
 				"Quote {} by {}\n>>> {}",
 				number,
-				q.user_id.parse::<UserId>().unwrap_or_default().mention(),
+				UserId::from(q.user_id).mention(),
 				q.text
 			)
 		})

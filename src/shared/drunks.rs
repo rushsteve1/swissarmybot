@@ -1,28 +1,36 @@
 use anyhow::Context;
 use chrono::NaiveDateTime;
+use juniper::GraphQLObject;
 use poise::serenity_prelude::UserId;
 use sqlx::SqlitePool;
 use tracing::instrument;
 
-#[derive(sqlx::FromRow)]
+use super::helpers::CleverNum;
+
+#[derive(sqlx::FromRow, GraphQLObject)]
+#[graphql(description = "A drunkard on the leaderboard")]
 pub struct Drunk {
-	pub id: i64,
+	pub id: CleverNum,
 	pub user_id: String,
 	pub user_name: String,
-	pub beer: i64,
-	pub wine: i64,
-	pub shots: i64,
-	pub cocktails: i64,
-	pub derby: i64,
-	pub water: i64,
+	pub beer: CleverNum,
+	pub wine: CleverNum,
+	pub shots: CleverNum,
+	pub cocktails: CleverNum,
+	pub derby: CleverNum,
+	pub water: CleverNum,
 	pub last_drink: Option<String>,
 	pub last_spill: Option<NaiveDateTime>,
 	pub updated_at: NaiveDateTime,
 }
 
 impl Drunk {
-	pub const fn score(&self) -> i64 {
-		self.beer + (self.wine * 2) + (self.shots * 2) + (self.cocktails * 2) + (self.derby * 3)
+	pub fn score(&self) -> i64 {
+		(self.beer.clone() * 1)
+			+ (self.wine.clone() * 2)
+			+ (self.shots.clone() * 2)
+			+ (self.cocktails.clone() * 2)
+			+ (self.derby.clone() * 3)
 	}
 }
 
@@ -114,9 +122,9 @@ pub async fn update(
 }
 
 #[instrument]
-pub async fn get_all(db: SqlitePool) -> anyhow::Result<Vec<Drunk>> {
+pub async fn get_all(db: &SqlitePool) -> anyhow::Result<Vec<Drunk>> {
 	sqlx::query_as!(Drunk, "SELECT * FROM drunk;")
-		.fetch_all(&db)
+		.fetch_all(db)
 		.await
 		.with_context(|| "getting drunks")
 }
