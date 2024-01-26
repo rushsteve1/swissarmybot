@@ -17,13 +17,14 @@ use tracing::instrument;
 
 use super::templates;
 
+use crate::shared::helpers::to_userid;
 use crate::shared::{drunks, quotes};
 use crate::{GIT_VERSION, VERSION};
 
 #[derive(Debug, Deserialize)]
 struct QuotesQuery {
 	#[serde(default, deserialize_with = "empty_string_as_none")]
-	user: Option<u64>,
+	user: Option<String>,
 	from_date: Option<String>,
 	to_date: Option<String>,
 }
@@ -65,14 +66,14 @@ async fn quotes(
 		.from_date
 		.ok_or_else(|| anyhow::anyhow!("no from_date"))
 		.and_then(|d| d.parse().with_context(|| "parsing from_date"))
-		.unwrap_or_default();
+		.unwrap_or(chrono::NaiveDateTime::MIN);
 	let to_date = query
 		.to_date
 		.ok_or_else(|| anyhow::anyhow!("no to_date"))
 		.and_then(|d| d.parse().with_context(|| "parsing to_date"))
 		.unwrap_or_else(|_| chrono::Utc::now().naive_utc());
 
-	let selected = query.user.map(UserId::new);
+	let selected = query.user.map(to_userid);
 	let quotes = if let Some(user_id) = selected {
 		quotes::get_for_user_id(&db, from_date, to_date, user_id).await?
 	} else {
@@ -91,6 +92,7 @@ async fn quotes(
 async fn drunks(State(db): State<SqlitePool>) -> Result<Markup, AppError> {
 	let mut drunks = drunks::get_all(&db).await?;
 	drunks.sort_by_key(drunks::Drunk::score);
+	drunks.reverse();
 
 	let last_spill_days: i64 = sqlx::query_scalar!(
         r#"SELECT max(last_spill) AS "last_spill?: chrono::NaiveDateTime" FROM drunk WHERE last_spill IS NOT NULL LIMIT 1;"#

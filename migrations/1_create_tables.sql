@@ -1,6 +1,6 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE quotes (
+CREATE TABLE IF NOT EXISTS quotes (
        id INTEGER PRIMARY KEY NOT NULL,
        text TEXT NOT NULL,
        user_id TEXT NOT NULL,

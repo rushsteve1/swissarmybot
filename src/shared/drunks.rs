@@ -21,12 +21,8 @@ pub struct Drunk {
 }
 
 impl Drunk {
-	pub fn score(&self) -> i64 {
-		(self.beer.clone() * 1)
-			+ (self.wine.clone() * 2)
-			+ (self.shots.clone() * 2)
-			+ (self.cocktails.clone() * 2)
-			+ (self.derby.clone() * 3)
+	pub const fn score(&self) -> i64 {
+		self.beer + (self.wine * 2) + (self.shots * 2) + (self.cocktails * 2) + (self.derby * 3)
 	}
 }
 

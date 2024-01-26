@@ -52,6 +52,19 @@ pub fn base(child: &Markup) -> Markup {
 				meta name="viewport" content="width=device-width, initial-scale=1";
 				title { "SwissArmyBot" }
 				link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@next/css/pico.fluid.classless.min.css";
+				style {
+					r#"table {
+						display:block;
+						overflow-x: auto;
+						max-width: 100vw;
+					}
+
+					#topbox {
+						display: flex;
+						justify-content: space-between;
+						margin-bottom: 1rem;
+					} "#
+				}
 			}
 			body {
 				(header())
@@ -105,7 +118,7 @@ pub fn quotes(quotes: Vec<Quote>, selected: Option<u64>, from_date: &str, to_dat
 	html! {
 		h1 { "Quote List" }
 
-		div style="display: flex; justify-content: space-between;" {
+		#topbox {
 			div { "There are " (quotes.len()) " quotes total" }
 			div { kbd { "Ctrl-F" } " to search" }
 		}
@@ -147,17 +160,19 @@ pub fn quotes(quotes: Vec<Quote>, selected: Option<u64>, from_date: &str, to_dat
 
 pub fn drunks(drunks: Vec<Drunk>, last_spill_days: i64) -> Markup {
 	html! {
-		h2 style="text-align: center" { u { (last_spill_days) } " days since last spill" }
+		h2 style="text-align: center; font-size: 300%;" {
+			u { (last_spill_days) } " days since last spill"
+		}
 		hr;
 
 		h1 { "Drunks List" }
 
-		div style="display: flex; justify-content: space-between;" {
+		#topbox {
 			div { "There are " (drunks.len()) " drunkards on the leaderboard" }
 			div { kbd { "Ctrl-F" } " to search" }
 		}
 
-		table {
+		table style="display:block; overflow-x: auto; max-width: 100vw" {
 			thead {
 				th { "Drunkard" }
 				th {
