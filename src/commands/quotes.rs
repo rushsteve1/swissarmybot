@@ -1,14 +1,15 @@
 use anyhow::Context;
-use poise::serenity_prelude::{Member, Mentionable, Message, UserId};
+use poise::serenity_prelude::{Member, Mentionable, Message};
 use tracing::instrument;
 
+use crate::shared::helpers::to_userid;
 use crate::shared::quotes;
 use crate::Ctx;
 
 /// Manage peoples' quotes
 #[poise::command(
 	slash_command,
-	rename = "quotes",
+	rename = "quote",
 	subcommands("add", "remove", "get", "list"),
 	subcommand_required
 )]
@@ -73,7 +74,7 @@ async fn get(
 			format!(
 				"Quote {} by {}\n>>> {}",
 				number,
-				UserId::from(q.user_id).mention(),
+				to_userid(q.user_id).mention(),
 				q.text
 			)
 		})

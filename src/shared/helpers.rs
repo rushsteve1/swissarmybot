@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use juniper::GraphQLScalarValue;
 use poise::serenity_prelude::{ChannelId, CreateMessage, Http, Mentionable, Message, UserId};
 use scraper::{Html, Selector};
 use sqlx::SqlitePool;
@@ -27,8 +26,8 @@ pub async fn post_random_to_channel(
 		"{}\n#{} by {}, added by {} on <t:{}:f>\n\n>>> {}",
 		body,
 		quote.id,
-		UserId::from(quote.user_id).mention(),
-		UserId::from(quote.author_id).mention(),
+		to_userid(quote.user_id).mention(),
+		to_userid(quote.author_id).mention(),
 		quote.inserted_at.timestamp(),
 		quote.text
 	);
@@ -65,41 +64,6 @@ pub async fn post_stonks_to_channel(http: Arc<Http>, chan: ChannelId) -> anyhow:
 		.with_context(|| "sending stonks message")
 }
 
-// There are a bunch of odd numeric errors between SQLx, Serenity, and Juniper.
-// This type wraps a String and implements a number of conversions to allow it to
-// work with all the libraries and be used in composite types.
-#[derive(Debug, Clone, GraphQLScalarValue)]
-pub struct CleverNum(String);
-
-impl From<String> for CleverNum {
-	fn from(value: String) -> Self {
-		Self(value)
-	}
-}
-
-impl From<i64> for CleverNum {
-	fn from(value: i64) -> Self {
-		Self(value.to_string())
-	}
-}
-
-impl From<CleverNum> for UserId {
-	fn from(value: CleverNum) -> Self {
-		value.0.parse().unwrap_or_default()
-	}
-}
-
-impl std::fmt::Display for CleverNum {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		self.0.fmt(f)
-	}
-}
-
-impl std::ops::Mul<i64> for CleverNum {
-	type Output = i64;
-
-	fn mul(self, rhs: i64) -> Self::Output {
-		let lhs: i64 = self.0.parse().unwrap_or_default();
-		lhs * rhs
-	}
+pub fn to_userid(s: impl Into<String>) -> UserId {
+	s.into().parse().unwrap_or_default()
 }

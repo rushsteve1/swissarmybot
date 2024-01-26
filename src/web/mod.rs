@@ -1,4 +1,3 @@
-mod graphql;
 mod handlers;
 mod templates;
 

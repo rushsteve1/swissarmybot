@@ -114,7 +114,6 @@ async fn main() -> anyhow::Result<()> {
 	// Fixes a clippy lint, have to put it around a block so it applies to the macro
 	#[allow(clippy::redundant_pub_crate)]
 	{
-		// Silence clippy for this minor macro issue
 		tokio::select!(
 			e = serenity_fut => e.with_context(|| "Serenity exited!")?,
 			e = axum_fut => e.with_context(|| "Axum exited!")?,

@@ -1,19 +1,17 @@
 use anyhow::Context;
 use chrono::NaiveDateTime;
-use juniper::GraphQLObject;
 use poise::serenity_prelude::UserId;
 use sqlx::SqlitePool;
 use tracing::instrument;
 
-use super::helpers::CleverNum;
+use super::helpers::to_userid;
 
-#[derive(sqlx::FromRow, GraphQLObject)]
-#[graphql(description = "A drunkard on the leaderboard")]
+#[derive(sqlx::FromRow)]
 pub struct Quote {
-	pub id: CleverNum,
-	pub user_id: CleverNum,
+	pub id: i64,
+	pub user_id: String,
 	pub user_name: String,
-	pub author_id: CleverNum,
+	pub author_id: String,
 	pub author_name: String,
 	pub text: String,
 	pub inserted_at: NaiveDateTime,
@@ -49,7 +47,7 @@ pub async fn remove(db: &SqlitePool, id: i64) -> anyhow::Result<Option<UserId>> 
 	)
 	.fetch_optional(db)
 	.await
-	.map(|o| o.map(|u| CleverNum::from(u).into()))
+	.map(|o| o.map(to_userid))
 	.with_context(|| "error deleting quote")
 }
 

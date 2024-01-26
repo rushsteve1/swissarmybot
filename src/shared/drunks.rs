@@ -1,24 +1,20 @@
 use anyhow::Context;
 use chrono::NaiveDateTime;
-use juniper::GraphQLObject;
 use poise::serenity_prelude::UserId;
 use sqlx::SqlitePool;
 use tracing::instrument;
 
-use super::helpers::CleverNum;
-
-#[derive(sqlx::FromRow, GraphQLObject)]
-#[graphql(description = "A drunkard on the leaderboard")]
+#[derive(sqlx::FromRow)]
 pub struct Drunk {
-	pub id: CleverNum,
+	pub id: i64,
 	pub user_id: String,
 	pub user_name: String,
-	pub beer: CleverNum,
-	pub wine: CleverNum,
-	pub shots: CleverNum,
-	pub cocktails: CleverNum,
-	pub derby: CleverNum,
-	pub water: CleverNum,
+	pub beer: i64,
+	pub wine: i64,
+	pub shots: i64,
+	pub cocktails: i64,
+	pub derby: i64,
+	pub water: i64,
 	pub last_drink: Option<String>,
 	pub last_spill: Option<NaiveDateTime>,
 	pub updated_at: NaiveDateTime,

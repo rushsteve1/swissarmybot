@@ -33,7 +33,6 @@ chrono = "*"
 chrono-tz = "*"
 clokwerk = "^0.4"
 include_data_uri = "^0.1" # Had to make this one myself
-juniper = { version = "^0.15", features = ["anyhow"] }
 maud = { version = "^0.26", features = ["axum"] }
 opentelemetry = "*"
 opentelemetry-otlp = { version = "^0.14", features = ["tls", "tls-roots"] }

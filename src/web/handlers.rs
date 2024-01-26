@@ -1,15 +1,13 @@
 use std::fmt;
 use std::str::FromStr;
-use std::sync::Arc;
 
 use anyhow::Context;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
-use axum::{Extension, Router};
+use axum::Router;
 use chrono::Local;
-use juniper::{EmptyMutation, EmptySubscription, RootNode};
 use maud::Markup;
 use poise::serenity_prelude::UserId;
 use serde::Deserializer;
@@ -17,7 +15,7 @@ use serde::{de, Deserialize};
 use sqlx::SqlitePool;
 use tracing::instrument;
 
-use super::{graphql, templates};
+use super::templates;
 
 use crate::shared::{drunks, quotes};
 use crate::{GIT_VERSION, VERSION};
@@ -44,21 +42,12 @@ where
 	}
 }
 
-type Schema = RootNode<'static, graphql::Query, EmptyMutation, EmptySubscription>;
-
 pub fn router(db: SqlitePool) -> Router {
-	let schema = Schema::new(
-		graphql::Query,
-		EmptyMutation::new(),
-		EmptySubscription::new(),
-	);
-
 	Router::new()
 		.route("/", get(index))
 		.route("/drunks", get(drunks))
 		.route("/quotes", get(quotes))
 		.fallback(not_found)
-		.layer(Extension(Arc::new(schema)))
 		.with_state(db)
 }
 
