@@ -101,7 +101,7 @@ async fn list(
 
 #[poise::command(context_menu_command = "Add Quote")]
 #[instrument]
-async fn context_menu(
+pub async fn context_menu(
 	ctx: Ctx<'_>,
 	#[description = "The message to add as a quote"] msg: Message,
 ) -> anyhow::Result<()> {

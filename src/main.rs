@@ -71,6 +71,7 @@ async fn main() -> anyhow::Result<()> {
 			},
 			commands: vec![
 				commands::quotes::top(),
+				commands::quotes::context_menu(),
 				commands::drunks::drunk(),
 				commands::drunks::spill(),
 				// commands::register(),
