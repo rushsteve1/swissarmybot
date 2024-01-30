@@ -6,8 +6,12 @@ A Discord bot that does a whole bunch of things that no one needs. Like a Swiss 
 
 ## Features
 
-- [ ] Quote message interaction
+- [x] Quote message interaction
 - [ ] Something else dumb
+- [x] Uiua interpreter
+  - [ ] Multimedia output
+  - [ ] Add more features to this
+- [ ] Record and graph stonks
 
 ## Improvements
 

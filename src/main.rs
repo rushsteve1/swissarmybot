@@ -76,11 +76,13 @@ async fn main() -> anyhow::Result<()> {
 				Box::pin(handler(ctx, event, framework, data))
 			},
 			commands: vec![
-				commands::quotes::top(),
-				commands::quotes::context_menu(),
+				commands::register(),
 				commands::drunks::drunk(),
 				commands::drunks::spill(),
-				commands::register(),
+				commands::quotes::top(),
+				commands::quotes::context_menu(),
+				commands::uiua::uiua(),
+				commands::uiua::context_menu(),
 			],
 			..Default::default()
 		})

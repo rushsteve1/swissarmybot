@@ -1,6 +1,6 @@
 [package]
 name = "swiss_army_bot"
-version = "2.1.0-nein"
+version = "2.2.0-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
@@ -46,6 +46,7 @@ tonic = "^0.9"
 tracing = "*"
 tracing-opentelemetry = "^0.22"
 tracing-subscriber = "*"
+uiua = { version = "^0.7", default_features = false }
 
 [dependencies.reqwest]
 version = "*"
