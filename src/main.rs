@@ -28,6 +28,8 @@ use crate::commands::events::handler;
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
 pub const GIT_VERSION: Option<&'static str> = std::option_env!("GIT_VERSION");
 
+const OWNER: serenity::UserId = serenity::UserId::new(114_901_572_084_826_119);
+
 #[derive(Debug, Clone)]
 struct Data {
 	db: SqlitePool,
@@ -63,9 +65,13 @@ async fn main() -> anyhow::Result<()> {
 	let fdb = db_pool.clone();
 	let fcfg = cfg.clone();
 
+	let mut owners = std::collections::HashSet::new();
+	owners.insert(OWNER);
+
 	// Build the Poise framework
 	let framework = poise::Framework::builder()
 		.options(poise::FrameworkOptions {
+			owners,
 			event_handler: |ctx, event, framework, data| {
 				Box::pin(handler(ctx, event, framework, data))
 			},
@@ -74,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
 				commands::quotes::context_menu(),
 				commands::drunks::drunk(),
 				commands::drunks::spill(),
-				// commands::register(),
+				commands::register(),
 			],
 			..Default::default()
 		})

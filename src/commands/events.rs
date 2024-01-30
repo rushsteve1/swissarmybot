@@ -8,7 +8,9 @@ pub async fn handler(
 	_data: &crate::Data,
 ) -> anyhow::Result<()> {
 	match event {
-		serenity::FullEvent::ReactionAdd { add_reaction } => downvote(ctx, add_reaction).await,
+		serenity::FullEvent::ReactionAdd { add_reaction } => {
+			reaction_handler(ctx, add_reaction).await
+		}
 		_ => Ok(()),
 	}
 }
@@ -17,7 +19,10 @@ const DOWN: &str = "⬇️";
 const DOWNVOTE_LIMIT: u8 = 5;
 
 #[instrument]
-async fn downvote(ctx: &serenity::Context, reaction: &serenity::Reaction) -> anyhow::Result<()> {
+async fn reaction_handler(
+	ctx: &serenity::Context,
+	reaction: &serenity::Reaction,
+) -> anyhow::Result<()> {
 	let react = &reaction.emoji;
 	let message = ctx
 		.http
