@@ -41,14 +41,14 @@ async fn run_uiua(ctx: Ctx<'_>, code: &str) -> anyhow::Result<()> {
 	let asm = comp.finish();
 
 	// TODO is this safe? Do I care?
-	let mut inter = Uiua::with_native_sys();
+	let mut inter = Uiua::with_safe_sys();
 	let res = tokio::time::timeout(TIMEOUT, async { inter.run_asm(asm) }).await?;
 
 	match res {
-		Ok(()) => {
+		Ok(_) => {
 			ctx.say(format!(
 				"Uiua program completed with stack:\n```\n{}\n```",
-				format_stack(inter.get_stack())
+				format_stack(inter.stack())
 			))
 			.await?;
 		}
