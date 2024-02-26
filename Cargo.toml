@@ -46,7 +46,7 @@ tonic = "^0.9"
 tracing = "*"
 tracing-opentelemetry = "^0.22"
 tracing-subscriber = "*"
-uiua = { version = "^0.8", default_features = false }
+uiua = { version = "^0.9", default_features = false }
 
 [dependencies.reqwest]
 version = "*"
