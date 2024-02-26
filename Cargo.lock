@@ -3498,9 +3498,9 @@ dependencies = [
 
 [[package]]
 name = "uiua"
-version = "0.8.0"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f40b97f4ba80335a405841352ea2a0ca6697855afef301b34a6c4cc498a887d7"
+checksum = "b6afde3c6412c3c4bc6af5c7f7a8340b089aa81379564c46e676eaa8945cbf8a"
 dependencies = [
  "bitflags 2.4.2",
  "bufreaderwriter",
