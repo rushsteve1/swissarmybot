@@ -1,18 +1,10 @@
-use std::{env, future::IntoFuture, time::Duration};
+use std::{env, future::IntoFuture};
 
 use anyhow::{bail, Context};
 use poise::serenity_prelude as serenity;
 use sqlx::{migrate::MigrateDatabase, SqlitePool};
 
-use opentelemetry::KeyValue;
-use opentelemetry_otlp::{Protocol, WithExportConfig};
-use opentelemetry_sdk::{
-	runtime,
-	trace::{self, Sampler},
-	Resource,
-};
 use tracing::{debug, info, instrument, warn};
-use tracing_subscriber::layer::SubscriberExt;
 
 mod commands;
 mod jobs;
@@ -40,9 +32,9 @@ type Ctx<'a> = poise::Context<'a, Data, anyhow::Error>;
 #[tokio::main]
 #[instrument]
 async fn main() -> anyhow::Result<()> {
-	let cfg = setup_config().with_context(|| "config setup")?;
+	tracing_subscriber::fmt::init();
 
-	setup_tracing(cfg.clone()).with_context(|| "tracing setup")?;
+	let cfg = setup_config().with_context(|| "config setup")?;
 
 	info!("Starting up SwissArmyBot {}...", VERSION);
 
@@ -185,45 +177,6 @@ fn setup_config() -> anyhow::Result<Config> {
 		otel_api_key,
 		only_webserver,
 	})
-}
-
-fn setup_tracing(cfg: Config) -> anyhow::Result<()> {
-	if cfg.otel_endpoint.is_empty() {
-		tracing_subscriber::fmt::init();
-		return Ok(());
-	}
-
-	let mut metamap = tonic::metadata::MetadataMap::with_capacity(2);
-	metamap.insert("x-host", cfg.domain.parse()?);
-	metamap.insert("api-key", cfg.otel_api_key.parse()?);
-
-	let exporter = opentelemetry_otlp::new_exporter()
-		.tonic()
-		.with_protocol(Protocol::Grpc)
-		.with_endpoint(cfg.otel_endpoint)
-		.with_timeout(Duration::from_secs(3))
-		.with_metadata(metamap);
-
-	let tracer = opentelemetry_otlp::new_pipeline()
-		.tracing()
-		.with_exporter(exporter)
-		.with_trace_config(
-			trace::config()
-				.with_sampler(Sampler::AlwaysOn)
-				.with_max_attributes_per_span(16)
-				.with_max_events_per_span(16)
-				.with_resource(Resource::new(vec![KeyValue::new(
-					"service.name",
-					"swiss_army_bot",
-				)])),
-		)
-		.install_batch(runtime::Tokio)
-		.with_context(|| "tracer setup")?;
-
-	let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-	let subscriber = tracing_subscriber::Registry::default().with(telemetry);
-
-	tracing::subscriber::set_global_default(subscriber).with_context(|| "tracing subscriber")
 }
 
 async fn setup_db() -> anyhow::Result<SqlitePool> {

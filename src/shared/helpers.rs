@@ -28,7 +28,7 @@ pub async fn post_random_to_channel(
 		quote.id,
 		to_userid(quote.user_id).mention(),
 		to_userid(quote.author_id).mention(),
-		quote.inserted_at.timestamp(),
+		quote.inserted_at.and_utc().timestamp(),
 		quote.text
 	);
 
