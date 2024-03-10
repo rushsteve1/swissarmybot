@@ -36,7 +36,7 @@ include_data_uri = "^0.1"                                                   # Ha
 maud = { version = "^0.26", features = ["axum"] }
 poise = "^0.6"
 regex = "*"
-scraper = "^0.18"
+scraper = "^0.19"
 serde = "*"
 serde_derive = "*"
 tracing = "*"
