@@ -46,6 +46,7 @@ where
 pub fn router(db: SqlitePool) -> Router {
 	Router::new()
 		.route("/", get(index))
+		.route("/robots.txt", get(robots))
 		.route("/drunks", get(drunks))
 		.route("/quotes", get(quotes))
 		.fallback(not_found)
@@ -55,6 +56,11 @@ pub fn router(db: SqlitePool) -> Router {
 #[instrument]
 async fn index() -> Markup {
 	templates::base(&templates::index(VERSION, GIT_VERSION))
+}
+
+#[instrument]
+async fn robots() -> &'static str {
+	include_str!("robots.txt")
 }
 
 #[instrument]
