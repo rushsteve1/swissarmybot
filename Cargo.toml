@@ -41,7 +41,7 @@ serde = "*"
 serde_derive = "*"
 tracing = "*"
 tracing-subscriber = "*"
-uiua = { version = "^0.9", default_features = false }
+uiua = { version = "^0.10", default_features = false }
 
 [dependencies.reqwest]
 version = "*"
