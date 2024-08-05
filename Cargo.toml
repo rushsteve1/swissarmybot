@@ -1,6 +1,6 @@
 [package]
 name = "swiss_army_bot"
-version = "2.3.0-nein"
+version = "2.3.1-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
@@ -32,27 +32,29 @@ axum = "^0.7"
 chrono = "*"
 chrono-tz = "*"
 clokwerk = "^0.4"
+dotenvy = "0.15"
 include_data_uri = "^0.1" # Had to make this one myself
 maud = { version = "^0.26", features = ["axum"] }
 poise = "^0.6"
 regex = "*"
-scraper = "^0.18"
+scraper = "^0.20"
 serde = "*"
 serde_derive = "*"
 tracing = "*"
 tracing-subscriber = "*"
-uiua = { version = "^0.9", default_features = false }
+uiua = { version = "^0.11", default-features = false }
 
 [dependencies.reqwest]
 version = "*"
-default_features = false
+default-features = false
 features = ["rustls-tls", "gzip"]
 
 [dependencies.sqlx]
-version = "^0.7"
-default_features = false
+version = "^0.8"
+default-features = false
 features = ["macros", "migrate", "chrono", "sqlite", "runtime-tokio"]
 
 [dependencies.tokio]
-version = "^1.36"
+version = "^1.39"
+default-features = false
 features = ["rt-multi-thread", "net"]

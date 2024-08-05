@@ -140,6 +140,8 @@ pub struct Config {
 // Get configuration from environment variables
 // These make working with SAB in a docker container much easier
 fn setup_config() -> anyhow::Result<Config> {
+	dotenvy::dotenv()?;
+
 	let Ok(token) = env::var("DISCORD_TOKEN") else {
 		bail!("Missing DISCORD_TOKEN env variable");
 	};
