@@ -1,18 +1,16 @@
-use std::{env, future::IntoFuture};
+use std::env;
 
 use anyhow::{bail, Context};
 use poise::serenity_prelude as serenity;
-use sqlx::{migrate::MigrateDatabase, SqlitePool};
+use sqlx::{postgres::PgPoolOptions, PgPool};
 
 use tracing::{debug, info, instrument, warn};
 
 mod commands;
 mod jobs;
 mod shared;
-mod web;
 
 use jobs::setup_jobs;
-use web::router;
 
 use crate::commands::events::handler;
 
@@ -24,7 +22,7 @@ const OWNER: serenity::UserId = serenity::UserId::new(114_901_572_084_826_119);
 
 #[derive(Debug, Clone)]
 struct Data {
-	db: SqlitePool,
+	db: PgPool,
 	cfg: Config,
 }
 type Ctx<'a> = poise::Context<'a, Data, anyhow::Error>;
@@ -39,19 +37,6 @@ async fn main() -> anyhow::Result<()> {
 	info!("Starting up SwissArmyBot {}...", VERSION);
 
 	let db_pool = setup_db().await.with_context(|| "database setup")?;
-
-	// Build the Axum server
-	let addr = format!("0.0.0.0:{}", cfg.port);
-	info!("Binding to address `{}`", addr);
-	let listener = tokio::net::TcpListener::bind(addr)
-		.await
-		.with_context(|| "TCP listener setup")?;
-	let axum_fut = axum::serve(listener, router(db_pool.clone())).into_future();
-
-	if cfg.only_webserver {
-		info!("Webserver only mode enabled...");
-		return axum_fut.await.with_context(|| "axum server");
-	}
 
 	// Makes the borrow checker happy
 	let fdb = db_pool.clone();
@@ -69,12 +54,8 @@ async fn main() -> anyhow::Result<()> {
 			},
 			commands: vec![
 				commands::register(),
-				commands::drunks::drunk(),
-				commands::drunks::spill(),
 				commands::quotes::top(),
 				commands::quotes::context_menu(),
-				commands::uiua::uiua(),
-				commands::uiua::context_menu(),
 			],
 			..Default::default()
 		})
@@ -117,7 +98,6 @@ async fn main() -> anyhow::Result<()> {
 	{
 		tokio::select!(
 			e = serenity_fut => e.with_context(|| "Serenity exited!")?,
-			e = axum_fut => e.with_context(|| "Axum exited!")?,
 			e = job_fut => e.with_context(|| "Jobs exited!")?,
 		);
 	}
@@ -130,11 +110,8 @@ async fn main() -> anyhow::Result<()> {
 pub struct Config {
 	pub token: String,
 	pub app_id: Option<serenity::ApplicationId>,
-	pub domain: String,
-	pub port: u16,
 	pub otel_endpoint: String,
 	pub otel_api_key: String,
-	pub only_webserver: bool,
 }
 
 // Get configuration from environment variables
@@ -147,11 +124,6 @@ fn setup_config() -> anyhow::Result<Config> {
 	};
 	info!("Discord token set");
 
-	let Ok(port) = env::var("PORT").map_or(Ok(8080), |p| p.parse::<u16>()) else {
-		bail!("PORT is not a number");
-	};
-	info!("Using port: {}", port);
-
 	let app_id = env::var("APPLICATION_ID")
 		.with_context(|| "APPLICATION_ID env variable")
 		.and_then(|id| {
@@ -161,56 +133,27 @@ fn setup_config() -> anyhow::Result<Config> {
 		.ok();
 	info!("Application ID set");
 
-	let domain = env::var("WEB_DOMAIN").unwrap_or_else(|_| "0.0.0.0".to_string());
-	info!("Using domain: {}", domain);
-
 	let otel_endpoint = env::var("OTEL_ENDPOINT").unwrap_or_default();
 	info!("Using OTEL endpoint: {}", otel_endpoint);
 	let otel_api_key = env::var("OTEL_API_KEY").unwrap_or_default();
 
-	let only_webserver = env::var("ONLY_WEBSERVER").is_ok();
-
 	Ok(Config {
 		token,
 		app_id,
-		domain,
-		port,
 		otel_endpoint,
 		otel_api_key,
-		only_webserver,
 	})
 }
 
-async fn setup_db() -> anyhow::Result<SqlitePool> {
+async fn setup_db() -> anyhow::Result<PgPool> {
 	// Build and connect to the database
-	let db_path = env::var("DATABASE_URL").unwrap_or_else(|_| "./swissarmy.sqlite".to_string());
+	let db_url = env::var("DATABASE_URL").with_context(|| "Connecting to database")?;
 
-	// Check the database path properly, creating the database if needed
-	let path_e = std::fs::canonicalize(&db_path);
-	if let Err(ref e) = path_e {
-		match e.kind() {
-			std::io::ErrorKind::NotFound => {
-				sqlx::Sqlite::create_database(&db_path)
-					.await
-					.with_context(|| "database creation")?;
-			}
-			_ => {
-				path_e?;
-			}
-		}
-	}
-
-	info!("Using database file {}", db_path);
-
-	let Ok(db_pool) = sqlx::sqlite::SqlitePoolOptions::new()
+	let db_pool = PgPoolOptions::new()
 		.max_connections(5)
-		.connect_lazy(&db_path)
-	else {
-		bail!("Error connecting to database");
-	};
-
-	// Apply migrations
-	sqlx::migrate!("./migrations").run(&db_pool).await?;
+		.connect(&db_url)
+		.await
+		.with_context(|| "Error connecting to database")?;
 
 	info!("Database migration completed");
 

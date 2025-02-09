@@ -2,14 +2,14 @@ use std::env;
 use std::sync::Arc;
 
 use clokwerk::Interval;
-use clokwerk::{AsyncScheduler, Job, TimeUnits};
+use clokwerk::{AsyncScheduler, Job};
 use poise::serenity_prelude::{ChannelId, Http};
 use tracing::{error, instrument, trace_span, warn};
 
-use crate::shared::helpers::{post_random_to_channel, post_stonks_to_channel};
+use crate::shared::helpers::post_stonks_to_channel;
 
 #[instrument]
-pub fn setup_jobs(db: sqlx::SqlitePool, http: Arc<Http>) -> AsyncScheduler<chrono_tz::Tz> {
+pub fn setup_jobs(db: sqlx::PgPool, http: Arc<Http>) -> AsyncScheduler<chrono_tz::Tz> {
 	let mut scheduler = AsyncScheduler::with_tz(chrono_tz::America::New_York);
 
 	// Calculate these here just the once
@@ -18,41 +18,6 @@ pub fn setup_jobs(db: sqlx::SqlitePool, http: Arc<Http>) -> AsyncScheduler<chron
 		.split(',')
 		.filter_map(|s| s.trim().parse::<u64>().ok().map(std::convert::Into::into))
 		.collect();
-	let qotd_channels: Vec<ChannelId> = env::var("QOTD_CHANNELS")
-		.unwrap_or_default()
-		.split(',')
-		.filter_map(|s| s.trim().parse::<u64>().ok().map(std::convert::Into::into))
-		.collect();
-
-	{
-		// this needs to be re-used so we have to prevent a move
-		let http = http.clone();
-		// Quote of the Day schedule
-		scheduler.every(1.day()).at("5:00 am").run(move || {
-			let qotd_channels = qotd_channels.clone();
-			let db = db.clone();
-			let http = http.clone();
-
-			async move {
-				let span = trace_span!("QOTD job");
-				let _enter = span.enter();
-
-				for chan in qotd_channels {
-					let Ok(_) = post_random_to_channel(
-						&db.clone(),
-						http.clone(),
-						chan,
-						"**Quote of the Day**".to_string(),
-					)
-					.await
-					else {
-						error!("could not post random quote");
-						break;
-					};
-				}
-			}
-		});
-	}
 
 	// Daily Stonks schedule
 	scheduler

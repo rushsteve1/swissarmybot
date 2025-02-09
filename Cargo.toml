@@ -28,21 +28,18 @@ strip = "symbols"
 
 [dependencies]
 anyhow = "*"
-axum = "^0.7"
 chrono = "*"
 chrono-tz = "*"
 clokwerk = "^0.4"
 dotenvy = "0.15"
-include_data_uri = "^0.1" # Had to make this one myself
-maud = { version = "^0.26", features = ["axum"] }
 poise = "^0.6"
 regex = "*"
-scraper = "^0.20"
+scraper = "^0.22"
 serde = "*"
 serde_derive = "*"
+serde_json = "*"
 tracing = "*"
 tracing-subscriber = "*"
-uiua = { version = "^0.11", default-features = false }
 
 [dependencies.reqwest]
 version = "*"
@@ -52,9 +49,9 @@ features = ["rustls-tls", "gzip"]
 [dependencies.sqlx]
 version = "^0.8"
 default-features = false
-features = ["macros", "migrate", "chrono", "sqlite", "runtime-tokio"]
+features = ["macros", "migrate", "chrono", "postgres", "runtime-tokio", "json"]
 
 [dependencies.tokio]
-version = "^1.39"
+version = "^1.43"
 default-features = false
 features = ["rt-multi-thread", "net"]

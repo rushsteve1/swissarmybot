@@ -1,9 +1,10 @@
-use anyhow::Context;
-use poise::serenity_prelude::{Member, Mentionable, Message};
+use anyhow::{Context, Ok};
+use poise::serenity_prelude::{self as serenity, CreateEmbed, Member, Mentionable, Message};
+use sqlx::PgPool;
 use tracing::instrument;
 
 use crate::shared::helpers::to_userid;
-use crate::shared::quotes;
+use crate::shared::quotes::{self, get_page, get_page_count};
 use crate::Ctx;
 
 /// Manage peoples' quotes
@@ -19,8 +20,8 @@ pub async fn top(_ctx: Ctx<'_>) -> anyhow::Result<()> {
 }
 
 /// Add a quote to the database
-#[poise::command(slash_command)]
 #[instrument]
+#[poise::command(slash_command)]
 async fn add(
 	ctx: Ctx<'_>,
 	#[description = "Who is this quote by?"] user: Member,
@@ -43,11 +44,11 @@ async fn add(
 }
 
 /// Remove a quote from the database
-#[poise::command(slash_command)]
 #[instrument]
+#[poise::command(slash_command)]
 async fn remove(
 	ctx: Ctx<'_>,
-	#[description = "What number quote should be removed?"] number: i64,
+	#[description = "What number quote should be removed?"] number: i32,
 ) -> anyhow::Result<()> {
 	let row = quotes::remove(&ctx.data().db, number).await?;
 
@@ -61,11 +62,11 @@ async fn remove(
 }
 
 /// Get a quote from the database
-#[poise::command(slash_command)]
 #[instrument]
+#[poise::command(slash_command)]
 async fn get(
 	ctx: Ctx<'_>,
-	#[description = "What number quote should be gotten?"] number: i64,
+	#[description = "What number quote should be gotten?"] number: i32,
 ) -> anyhow::Result<()> {
 	let quote = quotes::get_one(&ctx.data().db, number).await?;
 
@@ -75,7 +76,7 @@ async fn get(
 				"Quote {} by {}\n>>> {}",
 				number,
 				to_userid(q.user_id).mention(),
-				q.text
+				q.quote
 			)
 		})
 		.unwrap_or(format!("Quote {number} does not exist"));
@@ -86,21 +87,76 @@ async fn get(
 }
 
 /// List all the quotes by this user (or everyone)
-#[poise::command(slash_command)]
 #[instrument]
+#[poise::command(slash_command)]
 async fn list(
 	ctx: Ctx<'_>,
 	#[description = "Who is this quote by?"] user: Option<Member>,
 ) -> anyhow::Result<()> {
-	ctx.say(quotes::list_url(&ctx.data().cfg, user.map(|u| u.user.id)))
+	let user = user.unwrap();
+	let count = get_page_count(&ctx.data().db, user.user.id).await?;
+
+	// Adapted from: https://docs.rs/poise/latest/src/poise/builtins/paginate.rs.html#35-94
+
+	// Define some unique identifiers for the navigation buttons
+	let ctx_id = ctx.id();
+	let prev_button_id = format!("{}prev", ctx_id);
+	let next_button_id = format!("{}next", ctx_id);
+
+	// Send the embed with the first page as content
+	let reply = {
+		let components = serenity::CreateActionRow::Buttons(vec![
+			serenity::CreateButton::new(&prev_button_id).emoji('◀'),
+			serenity::CreateButton::new(&next_button_id).emoji('▶'),
+		]);
+
+		poise::CreateReply::default()
+			.embed(quotes_embed(&ctx.data().db, &user, 0).await?)
+			.components(vec![components])
+	};
+
+	ctx.send(reply).await?;
+
+	// Loop through incoming interactions with the navigation buttons
+	let mut current_page: i32 = 0;
+	while let Some(press) = serenity::collector::ComponentInteractionCollector::new(ctx)
+		// We defined our button IDs to start with `ctx_id`. If they don't, some other command's
+		// button was pressed
+		.filter(move |press| press.data.custom_id.starts_with(&ctx_id.to_string()))
+		// Timeout when no navigation button has been pressed for 24 hours
+		.timeout(std::time::Duration::from_secs(3600 * 24))
 		.await
-		.with_context(|| "quote list reply")?;
+	{
+		// Depending on which button was pressed, go to next or previous page
+		if press.data.custom_id == next_button_id {
+			current_page += 1;
+			if current_page >= count {
+				current_page = 0;
+			}
+		} else if press.data.custom_id == prev_button_id {
+			current_page = current_page.checked_sub(1).unwrap_or(count - 1);
+		} else {
+			// This is an unrelated button interaction
+			continue;
+		}
+
+		// Update the message with the new page contents
+		press
+			.create_response(
+				ctx.serenity_context(),
+				serenity::CreateInteractionResponse::UpdateMessage(
+					serenity::CreateInteractionResponseMessage::new()
+						.embed(quotes_embed(&ctx.data().db, &user, current_page).await?),
+				),
+			)
+			.await?;
+	}
 
 	Ok(())
 }
 
-#[poise::command(context_menu_command = "Add Quote")]
 #[instrument]
+#[poise::command(context_menu_command = "Add Quote")]
 pub async fn context_menu(
 	ctx: Ctx<'_>,
 	#[description = "The message to add as a quote"] msg: Message,
@@ -124,4 +180,14 @@ pub async fn context_menu(
 	.await?;
 
 	Ok(())
+}
+
+async fn quotes_embed(db: &PgPool, user: &Member, page: i32) -> anyhow::Result<CreateEmbed> {
+	let quotes = get_page(db, user.user.id, page).await?;
+
+	let embed = serenity::CreateEmbed::default()
+		.fields(quotes.iter().map(|q| (q.id.to_string(), &q.quote, true)))
+		.author(serenity::CreateEmbedAuthor::from(user.user));
+
+	Ok(embed)
 }

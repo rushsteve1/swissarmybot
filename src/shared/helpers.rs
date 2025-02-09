@@ -3,19 +3,21 @@ use std::sync::Arc;
 use anyhow::Context;
 use poise::serenity_prelude::{ChannelId, CreateMessage, Http, Mentionable, Message, UserId};
 use scraper::{Html, Selector};
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use tracing::instrument;
 
 use super::quotes;
 
 const GOOD_STONKS: &str = "📈";
 const BAD_STONKS: &str = "📉";
+
+// TODO need to find a better API than scraping Yahoo
 const STONKS_URL: &str = "https://finance.yahoo.com";
 const STONKS_SEL: &str = "#marketsummary-itm-2 > h3:nth-child(1) > div:nth-child(4) > fin-streamer:nth-child(1) > span:nth-child(1)";
 
 #[instrument]
 pub async fn post_random_to_channel(
-	db: &SqlitePool,
+	db: &PgPool,
 	http: Arc<Http>,
 	chan: ChannelId,
 	body: String,
@@ -28,8 +30,8 @@ pub async fn post_random_to_channel(
 		quote.id,
 		to_userid(quote.user_id).mention(),
 		to_userid(quote.author_id).mention(),
-		quote.inserted_at.and_utc().timestamp(),
-		quote.text
+		quote.created_at.and_utc().timestamp(),
+		quote.quote
 	);
 
 	chan.send_message(http, CreateMessage::new().content(txt))
