@@ -1,6 +1,6 @@
 use anyhow::Context;
 use chrono::NaiveDateTime;
-use poise::serenity_prelude::{Embed, EmbedField, UserId};
+use poise::serenity_prelude::UserId;
 use sqlx::PgPool;
 use tracing::instrument;
 
@@ -21,8 +21,8 @@ impl Quote {}
 #[instrument]
 pub async fn create_table(db: &PgPool) -> anyhow::Result<()> {
 	sqlx::query!(
-		"CREATE TABLE quotes (
-			id INTEGER PRIMARY KEY NOT NULL,
+		"CREATE TABLE IF NOT EXISTS quotes (
+			id SERIAL PRIMARY KEY,
 			user_id text NOT NULL,
 			author_id text NOT NULL,
 			quote text NOT NULL,
@@ -132,7 +132,7 @@ pub async fn get_random(db: &PgPool) -> anyhow::Result<Quote> {
 		.with_context(|| "getting quote")
 }
 
-const PAGE_SIZE: i64 = 5;
+const PAGE_SIZE: i32 = 5;
 
 #[instrument]
 pub async fn get_page(db: &PgPool, user_id: UserId, page: i32) -> anyhow::Result<Vec<Quote>> {
@@ -141,8 +141,8 @@ pub async fn get_page(db: &PgPool, user_id: UserId, page: i32) -> anyhow::Result
 		Quote,
 		"SELECT * FROM quotes WHERE user_id = $1 LIMIT $2 OFFSET $3;",
 		user_id,
-		PAGE_SIZE,
-		page * PAGE_SIZE
+		PAGE_SIZE as i64,
+		(page * PAGE_SIZE) as i64
 	)
 	.fetch_all(db)
 	.await
@@ -154,7 +154,7 @@ pub async fn get_page_count(db: &PgPool, user_id: UserId) -> anyhow::Result<i32>
 	let user_id = user_id.to_string();
 	let count = sqlx::query_scalar!(
 		"SELECT COUNT(*)/$1 FROM quotes WHERE user_id = $2;",
-		PAGE_SIZE,
+		PAGE_SIZE as i64,
 		user_id
 	)
 	.fetch_one(db)

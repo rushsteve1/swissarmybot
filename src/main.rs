@@ -2,6 +2,7 @@ use std::env;
 
 use anyhow::{bail, Context};
 use poise::serenity_prelude as serenity;
+use shared::quotes::create_table;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 
 use tracing::{debug, info, instrument, warn};
@@ -54,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
 			},
 			commands: vec![
 				commands::register(),
-				commands::quotes::top(),
+				commands::quotes::top::<anyhow::Error>(),
 				commands::quotes::context_menu(),
 			],
 			..Default::default()
@@ -154,6 +155,8 @@ async fn setup_db() -> anyhow::Result<PgPool> {
 		.connect(&db_url)
 		.await
 		.with_context(|| "Error connecting to database")?;
+	
+	create_table(&db_pool).await?;
 
 	info!("Database migration completed");
 

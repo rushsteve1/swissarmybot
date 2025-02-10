@@ -1,4 +1,4 @@
-use anyhow::{Context, Ok};
+use anyhow::Context;
 use poise::serenity_prelude::{self as serenity, CreateEmbed, Member, Mentionable, Message};
 use sqlx::PgPool;
 use tracing::instrument;
@@ -15,7 +15,7 @@ use crate::Ctx;
 	subcommand_required
 )]
 #[allow(clippy::unused_async)]
-pub async fn top(_ctx: Ctx<'_>) -> anyhow::Result<()> {
+pub async fn top<E>(_ctx: Ctx<'_>) -> Result<(), E> {
 	Ok(())
 }
 
@@ -187,7 +187,7 @@ async fn quotes_embed(db: &PgPool, user: &Member, page: i32) -> anyhow::Result<C
 
 	let embed = serenity::CreateEmbed::default()
 		.fields(quotes.iter().map(|q| (q.id.to_string(), &q.quote, true)))
-		.author(serenity::CreateEmbedAuthor::from(user.user));
+		.author(serenity::CreateEmbedAuthor::from(&user.user));
 
 	Ok(embed)
 }
