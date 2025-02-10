@@ -5,5 +5,6 @@ pub mod quotes;
 #[poise::command(slash_command, owners_only)]
 pub async fn register(ctx: crate::Ctx<'_>) -> anyhow::Result<()> {
 	poise::builtins::register_application_commands_buttons(ctx).await?;
+
 	Ok(())
 }

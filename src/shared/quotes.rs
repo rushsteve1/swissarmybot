@@ -20,7 +20,7 @@ impl Quote {}
 
 #[instrument]
 pub async fn create_table(db: &PgPool) -> anyhow::Result<()> {
-	sqlx::query!(
+	return sqlx::query!(
 		"CREATE TABLE IF NOT EXISTS quotes (
 			id SERIAL PRIMARY KEY,
 			user_id text NOT NULL,
@@ -32,9 +32,8 @@ pub async fn create_table(db: &PgPool) -> anyhow::Result<()> {
 	)
 	.execute(db)
 	.await
-	.with_context(|| "error creating table")?;
-
-	Ok(())
+	.map(|_| ())
+	.with_context(|| "error creating table");
 }
 
 #[instrument]
@@ -45,21 +44,19 @@ pub async fn add(
 	author_id: UserId,
 	author_name: &str,
 	text: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<i32> {
 	let user_id_s = user_id.to_string();
 	let author_id_s = author_id.to_string();
 
-	sqlx::query!(
-		"INSERT INTO quotes (quote, user_id, author_id) VALUES ($1, $2, $3);",
+	return sqlx::query_scalar!(
+		"INSERT INTO quotes (quote, user_id, author_id) VALUES ($1, $2, $3) RETURNING id;",
 		text,
 		user_id_s,
 		author_id_s
 	)
-	.execute(db)
+	.fetch_one(db)
 	.await
-	.with_context(|| "error inserting quote")?;
-
-	Ok(())
+	.with_context(|| "error inserting quote");
 }
 
 #[instrument]
@@ -132,10 +129,10 @@ pub async fn get_random(db: &PgPool) -> anyhow::Result<Quote> {
 		.with_context(|| "getting quote")
 }
 
-const PAGE_SIZE: i32 = 5;
+pub const PAGE_SIZE: usize = 5;
 
 #[instrument]
-pub async fn get_page(db: &PgPool, user_id: UserId, page: i32) -> anyhow::Result<Vec<Quote>> {
+pub async fn get_page(db: &PgPool, user_id: UserId, page: usize) -> anyhow::Result<Vec<Quote>> {
 	let user_id = user_id.to_string();
 	sqlx::query_as!(
 		Quote,
@@ -150,16 +147,12 @@ pub async fn get_page(db: &PgPool, user_id: UserId, page: i32) -> anyhow::Result
 }
 
 #[instrument]
-pub async fn get_page_count(db: &PgPool, user_id: UserId) -> anyhow::Result<i32> {
+pub async fn get_quote_count(db: &PgPool, user_id: UserId) -> anyhow::Result<usize> {
 	let user_id = user_id.to_string();
-	let count = sqlx::query_scalar!(
-		"SELECT COUNT(*)/$1 FROM quotes WHERE user_id = $2;",
-		PAGE_SIZE as i64,
-		user_id
-	)
-	.fetch_one(db)
-	.await
-	.with_context(|| "getting page count")?;
+	let count = sqlx::query_scalar!("SELECT COUNT(*) FROM quotes WHERE user_id = $1;", user_id)
+		.fetch_one(db)
+		.await
+		.with_context(|| "getting page count")?;
 
-	Ok(count.unwrap_or(0) as i32)
+	Ok(count.unwrap_or(0) as usize)
 }

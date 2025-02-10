@@ -1,5 +1,5 @@
 [package]
-name = "swiss_army_bot"
+name = "swissarmybot"
 version = "3.0.0-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"

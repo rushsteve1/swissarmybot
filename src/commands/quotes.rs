@@ -1,10 +1,10 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use poise::serenity_prelude::{self as serenity, CreateEmbed, Member, Mentionable, Message};
 use sqlx::PgPool;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::shared::helpers::to_userid;
-use crate::shared::quotes::{self, get_page, get_page_count};
+use crate::shared::quotes::{self, get_page, get_quote_count, Quote, PAGE_SIZE};
 use crate::Ctx;
 
 /// Manage peoples' quotes
@@ -27,7 +27,7 @@ async fn add(
 	#[description = "Who is this quote by?"] user: Member,
 	#[description = "What did they say?"] text: String,
 ) -> anyhow::Result<()> {
-	quotes::add(
+	let number = quotes::add(
 		&ctx.data().db,
 		user.user.id,
 		&user.user.name,
@@ -37,10 +37,16 @@ async fn add(
 	)
 	.await?;
 
-	ctx.say(format!("Quote added for {}\n>>> {}", user.mention(), text))
-		.await?;
+	let quote = quotes::get_one(&ctx.data().db, number)
+		.await?
+		.ok_or(anyhow!("quote not found"))?;
+	let reply = poise::CreateReply::default().embed(quote.embed(ctx).await?);
 
-	Ok(())
+	return ctx
+		.send(reply)
+		.await
+		.map(|_| ())
+		.with_context(|| "quote add reply");
 }
 
 /// Remove a quote from the database
@@ -50,15 +56,13 @@ async fn remove(
 	ctx: Ctx<'_>,
 	#[description = "What number quote should be removed?"] number: i32,
 ) -> anyhow::Result<()> {
-	let row = quotes::remove(&ctx.data().db, number).await?;
+	let _row = quotes::remove(&ctx.data().db, number).await?;
 
-	ctx.say(
-		row.map(|user_id| format!("Quote {} removed by {}", number, user_id.mention()))
-			.unwrap_or(format!("Quote {number} does not exist")),
-	)
-	.await?;
-
-	Ok(())
+	return ctx
+		.say(format!("Quote {number} removed"))
+		.await
+		.map(|_| ())
+		.with_context(|| "quote remove reply");
 }
 
 /// Get a quote from the database
@@ -68,40 +72,45 @@ async fn get(
 	ctx: Ctx<'_>,
 	#[description = "What number quote should be gotten?"] number: i32,
 ) -> anyhow::Result<()> {
-	let quote = quotes::get_one(&ctx.data().db, number).await?;
+	let quote = quotes::get_one(&ctx.data().db, number)
+		.await?
+		.ok_or(anyhow!("quote not found"))?;
+	let reply = poise::CreateReply::default().embed(quote.embed(ctx).await?);
 
-	let reply = quote
-		.map(|q| {
-			format!(
-				"Quote {} by {}\n>>> {}",
-				number,
-				to_userid(q.user_id).mention(),
-				q.quote
-			)
-		})
-		.unwrap_or(format!("Quote {number} does not exist"));
-
-	ctx.say(reply).await.with_context(|| "quote get reply")?;
-
-	Ok(())
+	return ctx
+		.send(reply)
+		.await
+		.map(|_| ())
+		.with_context(|| "quote get reply");
 }
 
-/// List all the quotes by this user (or everyone)
+/// List all the quotes by a user
 #[instrument]
 #[poise::command(slash_command)]
 async fn list(
 	ctx: Ctx<'_>,
-	#[description = "Who is this quote by?"] user: Option<Member>,
+	#[description = "Who is this quote by?"] user: Member,
 ) -> anyhow::Result<()> {
-	let user = user.unwrap();
-	let count = get_page_count(&ctx.data().db, user.user.id).await?;
+	let count = get_quote_count(&ctx.data().db, user.user.id).await?;
+
+	if count == 0 {
+		return ctx
+			.reply("This user has no quotes!")
+			.await
+			.map(|_| ())
+			.with_context(|| "no quotes");
+	}
+
+	let page_len = (count / PAGE_SIZE) + 1;
 
 	// Adapted from: https://docs.rs/poise/latest/src/poise/builtins/paginate.rs.html#35-94
 
 	// Define some unique identifiers for the navigation buttons
 	let ctx_id = ctx.id();
-	let prev_button_id = format!("{}prev", ctx_id);
-	let next_button_id = format!("{}next", ctx_id);
+	let prev_button_id = format!("{ctx_id}prev");
+	let next_button_id = format!("{ctx_id}next");
+
+	info!("list command {} started", ctx_id);
 
 	// Send the embed with the first page as content
 	let reply = {
@@ -111,14 +120,14 @@ async fn list(
 		]);
 
 		poise::CreateReply::default()
-			.embed(quotes_embed(&ctx.data().db, &user, 0).await?)
+			.embed(quotes_embed(&ctx.data().db, &user, 0, page_len).await?)
 			.components(vec![components])
 	};
 
 	ctx.send(reply).await?;
 
 	// Loop through incoming interactions with the navigation buttons
-	let mut current_page: i32 = 0;
+	let mut current_page: usize = 0;
 	while let Some(press) = serenity::collector::ComponentInteractionCollector::new(ctx)
 		// We defined our button IDs to start with `ctx_id`. If they don't, some other command's
 		// button was pressed
@@ -130,11 +139,11 @@ async fn list(
 		// Depending on which button was pressed, go to next or previous page
 		if press.data.custom_id == next_button_id {
 			current_page += 1;
-			if current_page >= count {
+			if current_page >= page_len {
 				current_page = 0;
 			}
 		} else if press.data.custom_id == prev_button_id {
-			current_page = current_page.checked_sub(1).unwrap_or(count - 1);
+			current_page = current_page.checked_sub(1).unwrap_or(page_len - 1);
 		} else {
 			// This is an unrelated button interaction
 			continue;
@@ -146,11 +155,13 @@ async fn list(
 				ctx.serenity_context(),
 				serenity::CreateInteractionResponse::UpdateMessage(
 					serenity::CreateInteractionResponseMessage::new()
-						.embed(quotes_embed(&ctx.data().db, &user, current_page).await?),
+						.embed(quotes_embed(&ctx.data().db, &user, current_page, page_len).await?),
 				),
 			)
 			.await?;
 	}
+
+	info!("list command {} ended", ctx_id);
 
 	Ok(())
 }
@@ -172,21 +183,52 @@ pub async fn context_menu(
 	)
 	.await?;
 
-	ctx.say(format!(
-		"Quote added for {}\n>>> {}",
-		msg.author.mention(),
-		text
-	))
-	.await?;
-
-	Ok(())
+	return ctx
+		.say(format!(
+			"Quote added for {}\n>>> {}",
+			msg.author.mention(),
+			text
+		))
+		.await
+		.map(|_| ())
+		.with_context(|| "quote add context menu reply");
 }
 
-async fn quotes_embed(db: &PgPool, user: &Member, page: i32) -> anyhow::Result<CreateEmbed> {
+impl Quote {
+	async fn embed(self, ctx: Ctx<'_>) -> anyhow::Result<CreateEmbed> {
+		let user = ctx.http().get_user(to_userid(self.user_id)).await?;
+		let author = ctx.http().get_user(to_userid(self.author_id)).await?;
+
+		Ok(serenity::CreateEmbed::new()
+			.title(format!("Quote #{}", self.id))
+			.description(self.quote)
+			.footer(
+				serenity::CreateEmbedFooter::new(format!("Added by {}", author.display_name()))
+					.icon_url(author.avatar_url().unwrap_or_default()),
+			)
+			.author(serenity::CreateEmbedAuthor::from(user)))
+	}
+}
+
+async fn quotes_embed(
+	db: &PgPool,
+	user: &Member,
+	page: usize,
+	len: usize,
+) -> anyhow::Result<CreateEmbed> {
 	let quotes = get_page(db, user.user.id, page).await?;
 
 	let embed = serenity::CreateEmbed::default()
-		.fields(quotes.iter().map(|q| (q.id.to_string(), &q.quote, true)))
+		.fields(
+			quotes
+				.iter()
+				.map(|q| (format!("Quote #{}", q.id), &q.quote, false)),
+		)
+		.footer(serenity::CreateEmbedFooter::new(format!(
+			"Page {} of {}",
+			page + 1,
+			len
+		)))
 		.author(serenity::CreateEmbedAuthor::from(&user.user));
 
 	Ok(embed)

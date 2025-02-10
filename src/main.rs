@@ -155,7 +155,7 @@ async fn setup_db() -> anyhow::Result<PgPool> {
 		.connect(&db_url)
 		.await
 		.with_context(|| "Error connecting to database")?;
-	
+
 	create_table(&db_pool).await?;
 
 	info!("Database migration completed");
