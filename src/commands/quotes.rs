@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use poise::serenity_prelude::{self as serenity, CreateEmbed, Member, Mentionable, Message};
+use poise::CreateReply;
 use sqlx::PgPool;
 use tracing::{info, instrument};
 
@@ -124,7 +125,7 @@ async fn list(
 			.components(vec![components])
 	};
 
-	ctx.send(reply).await?;
+	let msg = ctx.send(reply).await?;
 
 	// Loop through incoming interactions with the navigation buttons
 	let mut current_page: usize = 0;
@@ -163,7 +164,13 @@ async fn list(
 
 	info!("list command {} ended", ctx_id);
 
-	Ok(())
+	let reply = poise::CreateReply::default()
+		.embed(serenity::CreateEmbed::new().description("Interaction ended"));
+	return msg
+		.edit(ctx, reply)
+		.await
+		.map(|_| ())
+		.with_context(|| "interaction ended reply");
 }
 
 #[instrument]
@@ -172,26 +179,26 @@ pub async fn context_menu(
 	ctx: Ctx<'_>,
 	#[description = "The message to add as a quote"] msg: Message,
 ) -> anyhow::Result<()> {
-	let text = &msg.content_safe(ctx.cache());
-	quotes::add(
+	let number = quotes::add(
 		&ctx.data().db,
 		msg.author.id,
 		&msg.author.name,
 		ctx.author().id,
 		&ctx.author().name,
-		text,
+		&msg.content,
 	)
 	.await?;
 
+	let quote = quotes::get_one(&ctx.data().db, number)
+		.await?
+		.ok_or(anyhow!("quote not found"))?;
+	let reply = poise::CreateReply::default().embed(quote.embed(ctx).await?);
+
 	return ctx
-		.say(format!(
-			"Quote added for {}\n>>> {}",
-			msg.author.mention(),
-			text
-		))
+		.send(reply)
 		.await
 		.map(|_| ())
-		.with_context(|| "quote add context menu reply");
+		.with_context(|| "quote add reply");
 }
 
 impl Quote {
