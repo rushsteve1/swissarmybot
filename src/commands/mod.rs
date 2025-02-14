@@ -1,5 +1,6 @@
 pub mod events;
 pub mod quotes;
+pub mod spill;
 
 #[tracing::instrument]
 #[poise::command(slash_command, owners_only)]
