@@ -2,18 +2,14 @@ use std::env;
 
 use anyhow::{bail, Context};
 use poise::serenity_prelude as serenity;
-use shared::quotes::create_table;
 use sqlx::{postgres::PgPoolOptions, PgPool};
-
-use tracing::{debug, info, instrument, warn};
+use tracing::{info, instrument};
 
 mod commands;
-mod jobs;
-mod shared;
-
-use jobs::setup_jobs;
+mod quotes;
 
 use crate::commands::events::handler;
+use crate::quotes::create_table;
 
 // Get version and git info from environment variables during compile
 pub const VERSION: &str = std::env!("CARGO_PKG_VERSION");
@@ -31,7 +27,18 @@ type Ctx<'a> = poise::Context<'a, Data, anyhow::Error>;
 #[tokio::main]
 #[instrument]
 async fn main() -> anyhow::Result<()> {
-	tracing_subscriber::fmt::init();
+	if cfg!(feature = "tracy") {
+		#[cfg(feature = "tracy")]
+		{
+			use tracing_subscriber::layer::SubscriberExt;
+			tracing::subscriber::set_global_default(
+				tracing_subscriber::registry().with(tracing_tracy::TracyLayer::default()),
+			)
+			.expect("setup tracy layer");
+		}
+	} else {
+		tracing_subscriber::fmt::init();
+	}
 
 	let cfg = setup_config().with_context(|| "config setup")?;
 
@@ -68,43 +75,19 @@ async fn main() -> anyhow::Result<()> {
 		})
 		.build();
 
-	// Build the Serenity client
-	let mut client = serenity::ClientBuilder::new(
+	// Build the Serenity client and start it, blocking the main thread
+	serenity::ClientBuilder::new(
 		cfg.token.clone(),
 		serenity::GatewayIntents::non_privileged(),
 	)
 	.framework(framework)
 	.application_id(cfg.app_id.unwrap_or_default())
 	.await
-	.with_context(|| "serenity client setup")?;
+	.with_context(|| "serenity client setup")?
+	.start()
+	.await?;
 
-	// Setup the cron jobs to check every 60 seconds
-	let mut scheduler = setup_jobs(db_pool, client.http.clone());
-	let job_fut = tokio::spawn(async move {
-		loop {
-			scheduler.run_pending().await;
-			tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-		}
-	});
-
-	// Start the client but don't await it yet since we need to select all the futures together
-	let serenity_fut = client.start();
-
-	// We're running everything in Tokio workers, and none of them should ever exit,
-	// so we wait for them and print an error if they do.
-	debug!("Starting event loop...");
-
-	// Fixes a clippy lint, have to put it around a block so it applies to the macro
-	#[allow(clippy::redundant_pub_crate)]
-	{
-		tokio::select!(
-			e = serenity_fut => e.with_context(|| "Serenity exited!")?,
-			e = job_fut => e.with_context(|| "Jobs exited!")?,
-		);
-	}
-
-	// Shouldn't be possible, but just in case
-	anyhow::bail!("SwissArmyBot exited!")
+	unreachable!()
 }
 
 #[derive(Clone, Debug, Default)]

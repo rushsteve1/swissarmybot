@@ -3,8 +3,7 @@ use poise::serenity_prelude::{self as serenity, CreateEmbed, Member, Message};
 use sqlx::PgPool;
 use tracing::{info, instrument};
 
-use crate::shared::helpers::to_userid;
-use crate::shared::quotes::{self, get_page, get_quote_count, Quote, PAGE_SIZE};
+use crate::quotes::{self, get_page, get_quote_count, to_userid, Quote, PAGE_SIZE};
 use crate::Ctx;
 
 /// Manage peoples' quotes
@@ -39,7 +38,7 @@ async fn add(
 
 	let quote = quotes::get_one(&ctx.data().db, number)
 		.await?
-		.ok_or(anyhow!("quote not found"))?;
+		.ok_or_else(|| anyhow!("quote not found"))?;
 	let reply = poise::CreateReply::default().embed(quote.embed(ctx).await?);
 
 	return ctx
@@ -74,7 +73,7 @@ async fn get(
 ) -> anyhow::Result<()> {
 	let quote = quotes::get_one(&ctx.data().db, number)
 		.await?
-		.ok_or(anyhow!("quote not found"))?;
+		.ok_or_else(|| anyhow!("quote not found"))?;
 	let reply = poise::CreateReply::default().embed(quote.embed(ctx).await?);
 
 	return ctx
@@ -168,7 +167,6 @@ async fn list(
 	return msg
 		.edit(ctx, reply)
 		.await
-		.map(|_| ())
 		.with_context(|| "interaction ended reply");
 }
 
@@ -190,7 +188,7 @@ pub async fn context_menu(
 
 	let quote = quotes::get_one(&ctx.data().db, number)
 		.await?
-		.ok_or(anyhow!("quote not found"))?;
+		.ok_or_else(|| anyhow!("quote not found"))?;
 	let reply = poise::CreateReply::default().embed(quote.embed(ctx).await?);
 
 	return ctx
@@ -209,13 +207,18 @@ impl Quote {
 			.title(format!("Quote #{}", self.id))
 			.description(self.quote)
 			.footer(
-				serenity::CreateEmbedFooter::new(format!("Added by {} on {}", author.display_name(), self.created_at))
-					.icon_url(author.avatar_url().unwrap_or_default()),
+				serenity::CreateEmbedFooter::new(format!(
+					"Added by {} on {}",
+					author.display_name(),
+					self.created_at
+				))
+				.icon_url(author.avatar_url().unwrap_or_default()),
 			)
 			.author(serenity::CreateEmbedAuthor::from(user)))
 	}
 }
 
+#[instrument]
 async fn quotes_embed(
 	db: &PgPool,
 	user: &Member,

@@ -1,11 +1,12 @@
 use poise::serenity_prelude::{self as serenity, ReactionType};
 use tracing::instrument;
 
+#[instrument]
 pub async fn handler(
 	ctx: &serenity::Context,
 	event: &serenity::FullEvent,
-	_framework: poise::FrameworkContext<'_, crate::Data, anyhow::Error>,
-	_data: &crate::Data,
+	_: poise::FrameworkContext<'_, crate::Data, anyhow::Error>,
+	_: &crate::Data,
 ) -> anyhow::Result<()> {
 	match event {
 		serenity::FullEvent::ReactionAdd { add_reaction } => {

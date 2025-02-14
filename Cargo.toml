@@ -1,17 +1,19 @@
 [package]
 name = "swissarmybot"
-version = "3.0.0-nein"
+version = "3.1.0-nein"
 authors = ["Steven vanZyl <rushsteve1@rushsteve1.us>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+tracy = ["tracing-tracy"]
 
 [lints.rust]
 unsafe_code = "forbid"
 future_incompatible = "forbid"
 
 [lints.clippy]
-indexing_slicing = "forbid"
 unwrap_used = "deny"
 expect_used = "deny"
 invalid_regex = "deny"
@@ -30,7 +32,6 @@ strip = "symbols"
 anyhow = "*"
 chrono = "*"
 chrono-tz = "*"
-clokwerk = "^0.4"
 dotenvy = "0.15"
 poise = "^0.6"
 regex = "*"
@@ -39,12 +40,7 @@ serde_derive = "*"
 serde_json = "*"
 tracing = "*"
 tracing-subscriber = "*"
-typst = "0.12.0"
-
-[dependencies.reqwest]
-version = "*"
-default-features = false
-features = ["rustls-tls", "gzip", "json"]
+tracing-tracy = { version = "^0.11", optional = true }
 
 [dependencies.sqlx]
 version = "^0.8"

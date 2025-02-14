@@ -4,13 +4,16 @@ use poise::serenity_prelude::UserId;
 use sqlx::PgPool;
 use tracing::instrument;
 
-use super::helpers::to_userid;
+pub fn to_userid(s: impl Into<String>) -> UserId {
+	s.into().parse().unwrap_or_default()
+}
 
 #[derive(sqlx::FromRow)]
 pub struct Quote {
 	pub id: i64,
 	pub user_id: String,
 	pub author_id: String,
+	#[allow(clippy::struct_field_names)]
 	pub quote: String,
 	pub created_at: NaiveDateTime,
 	pub ext: Option<serde_json::Value>,
