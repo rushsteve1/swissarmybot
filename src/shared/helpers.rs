@@ -1,69 +1,32 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use poise::serenity_prelude::{ChannelId, CreateMessage, Http, Mentionable, Message, UserId};
-use scraper::{Html, Selector};
-use sqlx::PgPool;
+use poise::serenity_prelude::{ChannelId, CreateMessage, Http, Message, UserId};
 use tracing::instrument;
-
-use super::quotes;
 
 const GOOD_STONKS: &str = "📈";
 const BAD_STONKS: &str = "📉";
 
 // TODO need to find a better API than scraping Yahoo
-const STONKS_URL: &str = "https://finance.yahoo.com";
-const STONKS_SEL: &str = "#marketsummary-itm-2 > h3:nth-child(1) > div:nth-child(4) > fin-streamer:nth-child(1) > span:nth-child(1)";
-
-#[instrument]
-pub async fn post_random_to_channel(
-	db: &PgPool,
-	http: Arc<Http>,
-	chan: ChannelId,
-	body: String,
-) -> anyhow::Result<Message> {
-	let quote = quotes::get_random(db).await?;
-
-	let txt = format!(
-		"{}\n#{} by {}, added by {} on <t:{}:f>\n\n>>> {}",
-		body,
-		quote.id,
-		to_userid(quote.user_id).mention(),
-		to_userid(quote.author_id).mention(),
-		quote.created_at.and_utc().timestamp(),
-		quote.quote
-	);
-
-	chan.send_message(http, CreateMessage::new().content(txt))
-		.await
-		.with_context(|| "sending random quote")
-}
+const STONKS_URL: &str = "https://query2.finance.yahoo.com/v8/finance/chart/NQ%3DF";
 
 #[instrument]
 pub async fn post_stonks_to_channel(http: Arc<Http>, chan: ChannelId) -> anyhow::Result<Message> {
-	let txt = {
-		let body = reqwest::get(STONKS_URL).await?.text().await?;
-		let document = Html::parse_document(&body);
-		let Ok(selector) = Selector::parse(STONKS_SEL) else {
-			anyhow::bail!("selector parsing failed");
-		};
+	let raw_data: serde_json::Value = reqwest::get(STONKS_URL).await?.json().await?;
+	let meta = &raw_data["chart"]["result"][0]["meta"];
+	let current = meta["regularMarketPrice"].as_f64().unwrap();
+	let previous = meta["previousClose"].as_f64().unwrap();
 
-		// This is clunky but effective
-		(|| {
-			let el = document.select(&selector).next()?;
-			let c = el.text().next()?.chars().next()?;
-			match c {
-				'+' => Some(GOOD_STONKS),
-				'-' => Some(BAD_STONKS),
-				_ => None,
-			}
-		})()
-		.ok_or_else(|| anyhow::anyhow!("failed to find element"))?
+	let emoji = if current > previous {
+		GOOD_STONKS
+	} else {
+		BAD_STONKS
 	};
 
-	chan.send_message(http, CreateMessage::new().content(txt))
+	return chan
+		.send_message(http, CreateMessage::new().content(emoji))
 		.await
-		.with_context(|| "sending stonks message")
+		.with_context(|| "stonks send");
 }
 
 pub fn to_userid(s: impl Into<String>) -> UserId {

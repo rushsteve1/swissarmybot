@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
-use poise::serenity_prelude::{self as serenity, CreateEmbed, Member, Mentionable, Message};
-use poise::CreateReply;
+use poise::serenity_prelude::{self as serenity, CreateEmbed, Member, Message};
 use sqlx::PgPool;
 use tracing::{info, instrument};
 
@@ -210,7 +209,7 @@ impl Quote {
 			.title(format!("Quote #{}", self.id))
 			.description(self.quote)
 			.footer(
-				serenity::CreateEmbedFooter::new(format!("Added by {}", author.display_name()))
+				serenity::CreateEmbedFooter::new(format!("Added by {} on {}", author.display_name(), self.created_at))
 					.icon_url(author.avatar_url().unwrap_or_default()),
 			)
 			.author(serenity::CreateEmbedAuthor::from(user)))
