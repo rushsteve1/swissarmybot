@@ -48,6 +48,6 @@ default-features = false
 features = ["macros", "migrate", "chrono", "postgres", "runtime-tokio", "json"]
 
 [dependencies.tokio]
-version = "^1.43"
+version = "^1.45"
 default-features = false
 features = ["rt-multi-thread", "net"]
