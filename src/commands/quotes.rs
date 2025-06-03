@@ -200,12 +200,12 @@ pub async fn context_menu(
 
 impl Quote {
 	async fn embed(self, ctx: Ctx<'_>) -> anyhow::Result<CreateEmbed> {
-		let user = ctx.http().get_user(to_userid(self.user_id)).await?;
-		let author = ctx.http().get_user(to_userid(self.author_id)).await?;
+		let user = ctx.http().get_user(to_userid(&self.user_id)).await?;
+		let author = ctx.http().get_user(to_userid(&self.author_id)).await?;
 
 		Ok(serenity::CreateEmbed::new()
 			.title(format!("Quote #{}", self.id))
-			.description(self.quote)
+			.description(self.quote_trunc())
 			.footer(
 				serenity::CreateEmbedFooter::new(format!(
 					"Added by {} on {}",
@@ -228,11 +228,9 @@ async fn quotes_embed(
 	let quotes = get_page(db, user.user.id, page).await?;
 
 	let embed = serenity::CreateEmbed::default()
-		.fields(
-			quotes
-				.iter()
-				.map(|q| (format!("Quote #{}", q.id), &q.quote, false)),
-		)
+		.fields(quotes.iter().map(|q|
+			(format!("Quote #{}", q.id), q.quote_trunc(), false)
+		))
 		.footer(serenity::CreateEmbedFooter::new(format!(
 			"Page {} of {}",
 			page + 1,

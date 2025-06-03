@@ -19,7 +19,13 @@ pub struct Quote {
 	pub ext: Option<serde_json::Value>,
 }
 
-impl Quote {}
+impl Quote {
+    pub fn quote_trunc(&self) -> &str {
+        // Discord's limit is 1024 so this gives us a little room
+        let l = std::cmp::min(self.quote.len(), 1000);
+        &self.quote[..l]
+    }
+}
 
 #[instrument]
 pub async fn create_table(db: &PgPool) -> anyhow::Result<()> {
